@@ -1,0 +1,23 @@
+{
+	"name": "automattic/woocommerce-dual-api",
+	"description": "Experimental code-first dual (PHP + GraphQL) API engine for WooCommerce, extracted from WooCommerce core.",
+	"type": "wordpress-plugin",
+	"license": "GPL-3.0-or-later",
+	"require": {
+		"php": ">=8.1"
+	},
+	"autoload": {
+		"psr-4": {
+			"Automattic\\WooCommerce\\": "src/",
+			"Automattic\\WooCommerce\\Vendor\\": "lib/packages/"
+		},
+		"psr-0": {
+			"Automattic\\WooCommerce\\Vendor\\": "lib/packages/"
+		}
+	},
+	"config": {
+		"platform": {
+			"php": "8.1.0"
+		}
+	}
+}
