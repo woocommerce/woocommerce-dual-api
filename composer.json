@@ -13,6 +13,14 @@
 		},
 		"psr-0": {
 			"Automattic\\WooCommerce\\Vendor\\": "lib/packages/"
+		},
+		"files": [
+			"src/Api/Infrastructure/Schema/aliases.php"
+		]
+	},
+	"autoload-dev": {
+		"psr-4": {
+			"Automattic\\WooCommerce\\Api\\Infrastructure\\DesignTime\\": "bin/api-builder/"
 		}
 	},
 	"config": {

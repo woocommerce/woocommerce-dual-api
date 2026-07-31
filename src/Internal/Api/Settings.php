@@ -11,8 +11,8 @@ use Automattic\WooCommerce\Api\Infrastructure\Main;
  * Settings handling for the GraphQL API.
  *
  * Registers the "GraphQL" section under WooCommerce - Settings - Advanced.
- * Only active when Main::is_enabled() returns true (feature flag on and
- * PHP 8.1+), so the section is hidden when the feature is disabled.
+ * Only active when Main::is_enabled() returns true (PHP 8.1+), so the
+ * section is hidden when the requirement isn't met.
  */
 class Settings {
 	/**
@@ -42,7 +42,7 @@ class Settings {
 	 */
 	public function add_section( array $sections ): array {
 		if ( Main::is_enabled() ) {
-			$sections[ self::SECTION_ID ] = __( 'GraphQL', 'woocommerce' );
+			$sections[ self::SECTION_ID ] = __( 'GraphQL', 'woocommerce-dual-api' );
 		}
 		return $sections;
 	}
@@ -61,66 +61,66 @@ class Settings {
 
 		return array(
 			array(
-				'title' => __( 'GraphQL', 'woocommerce' ),
-				'desc'  => __( 'Configure the WooCommerce GraphQL API.', 'woocommerce' ),
+				'title' => __( 'GraphQL', 'woocommerce-dual-api' ),
+				'desc'  => __( 'Configure the WooCommerce GraphQL API.', 'woocommerce-dual-api' ),
 				'type'  => 'title',
 				'id'    => 'woocommerce_graphql_options',
 			),
 			array(
-				'title'    => __( 'Endpoint URL', 'woocommerce' ),
-				'desc'     => __( 'Path relative to /wp-json/ where the GraphQL endpoint is exposed. Needs at least two segments (namespace/route), e.g. wc/graphql.', 'woocommerce' ),
+				'title'    => __( 'Endpoint URL', 'woocommerce-dual-api' ),
+				'desc'     => __( 'Path relative to /wp-json/ where the GraphQL endpoint is exposed. Needs at least two segments (namespace/route), e.g. wc/graphql.', 'woocommerce-dual-api' ),
 				'desc_tip' => true,
 				'id'       => Main::OPTION_ENDPOINT_URL,
 				'default'  => GraphQLControllerBase::DEFAULT_ENDPOINT_URL,
 				'type'     => 'text',
 			),
 			array(
-				'title'   => __( 'Enable GET endpoint', 'woocommerce' ),
-				'desc'    => __( 'Allow GraphQL queries over GET in addition to POST', 'woocommerce' ),
+				'title'   => __( 'Enable GET endpoint', 'woocommerce-dual-api' ),
+				'desc'    => __( 'Allow GraphQL queries over GET in addition to POST', 'woocommerce-dual-api' ),
 				'id'      => Main::OPTION_GET_ENDPOINT_ENABLED,
 				'default' => 'yes',
 				'type'    => 'checkbox',
 			),
 			array(
-				'title'             => __( 'Maximum query depth', 'woocommerce' ),
-				'desc'              => __( 'Reject queries whose selection nesting exceeds this depth.', 'woocommerce' ),
+				'title'             => __( 'Maximum query depth', 'woocommerce-dual-api' ),
+				'desc'              => __( 'Reject queries whose selection nesting exceeds this depth.', 'woocommerce-dual-api' ),
 				'id'                => Main::OPTION_MAX_QUERY_DEPTH,
 				'default'           => (string) GraphQLControllerBase::DEFAULT_MAX_QUERY_DEPTH,
 				'type'              => 'number',
 				'custom_attributes' => array( 'min' => '1' ),
 			),
 			array(
-				'title'             => __( 'Maximum query complexity', 'woocommerce' ),
-				'desc'              => __( 'Reject queries whose computed complexity score exceeds this value.', 'woocommerce' ),
+				'title'             => __( 'Maximum query complexity', 'woocommerce-dual-api' ),
+				'desc'              => __( 'Reject queries whose computed complexity score exceeds this value.', 'woocommerce-dual-api' ),
 				'id'                => Main::OPTION_MAX_QUERY_COMPLEXITY,
 				'default'           => (string) GraphQLControllerBase::DEFAULT_MAX_QUERY_COMPLEXITY,
 				'type'              => 'number',
 				'custom_attributes' => array( 'min' => '1' ),
 			),
 			array(
-				'title'   => __( 'Enable OPcache-based caching', 'woocommerce' ),
-				'desc'    => __( 'Cache parsed queries on disk as PHP files so OPcache can serve them from shared memory. Falls back to the object cache when the filesystem is not writable.', 'woocommerce' ),
+				'title'   => __( 'Enable OPcache-based caching', 'woocommerce-dual-api' ),
+				'desc'    => __( 'Cache parsed queries on disk as PHP files so OPcache can serve them from shared memory. Falls back to the object cache when the filesystem is not writable.', 'woocommerce-dual-api' ),
 				'id'      => Main::OPTION_OPCACHE_ENABLED,
 				'default' => 'yes',
 				'type'    => 'checkbox',
 			),
 			array(
-				'title'   => __( 'Enable ObjectCache-based caching', 'woocommerce' ),
-				'desc'    => __( 'Cache parsed queries in the WP object cache', 'woocommerce' ),
+				'title'   => __( 'Enable ObjectCache-based caching', 'woocommerce-dual-api' ),
+				'desc'    => __( 'Cache parsed queries in the WP object cache', 'woocommerce-dual-api' ),
 				'id'      => Main::OPTION_OBJECT_CACHE_ENABLED,
 				'default' => 'yes',
 				'type'    => 'checkbox',
 			),
 			array(
-				'title'   => __( 'Enable APQ caching', 'woocommerce' ),
-				'desc'    => __( 'Cache parsed queries using the Apollo Automatic Persisted Queries protocol', 'woocommerce' ),
+				'title'   => __( 'Enable APQ caching', 'woocommerce-dual-api' ),
+				'desc'    => __( 'Cache parsed queries using the Apollo Automatic Persisted Queries protocol', 'woocommerce-dual-api' ),
 				'id'      => Main::OPTION_APQ_ENABLED,
 				'default' => 'yes',
 				'type'    => 'checkbox',
 			),
 			array(
-				'title'             => __( 'Parsed query cache TTL', 'woocommerce' ),
-				'desc'              => __( 'Time in seconds before cached parsed queries expire.', 'woocommerce' ),
+				'title'             => __( 'Parsed query cache TTL', 'woocommerce-dual-api' ),
+				'desc'              => __( 'Time in seconds before cached parsed queries expire.', 'woocommerce-dual-api' ),
 				'id'                => Main::OPTION_QUERY_CACHE_TTL,
 				'default'           => (string) QueryCache::DEFAULT_CACHE_TTL,
 				'type'              => 'number',
@@ -159,13 +159,13 @@ class Settings {
 		$normalized = trim( $raw_value, '/' );
 
 		if ( '' === $normalized ) {
-			\WC_Admin_Settings::add_error( __( 'GraphQL endpoint URL cannot be empty.', 'woocommerce' ) );
+			\WC_Admin_Settings::add_error( __( 'GraphQL endpoint URL cannot be empty.', 'woocommerce-dual-api' ) );
 			return $fallback;
 		}
 
 		$parts = explode( '/', $normalized );
 		if ( count( $parts ) < 2 ) {
-			\WC_Admin_Settings::add_error( __( 'GraphQL endpoint URL needs at least two segments, e.g. wc/graphql.', 'woocommerce' ) );
+			\WC_Admin_Settings::add_error( __( 'GraphQL endpoint URL needs at least two segments, e.g. wc/graphql.', 'woocommerce-dual-api' ) );
 			return $fallback;
 		}
 
@@ -174,7 +174,7 @@ class Settings {
 				\WC_Admin_Settings::add_error(
 					sprintf(
 						/* translators: %s: the invalid path segment */
-						__( 'GraphQL endpoint URL segment "%s" contains invalid characters. Use letters, digits, underscores, and hyphens only.', 'woocommerce' ),
+						__( 'GraphQL endpoint URL segment "%s" contains invalid characters. Use letters, digits, underscores, and hyphens only.', 'woocommerce-dual-api' ),
 						$part
 					)
 				);

@@ -80,24 +80,24 @@ class MetadataController {
 			'type'        => Type::nonNull( Type::listOf( Type::nonNull( self::get_target_type() ) ) ),
 			'description' => __(
 				'Lists metadata attached to elements of this schema. All filter arguments are optional; supplying multiple narrows the result. Use this to discover internal-use APIs, beta features, ownership, etc., or to ask "can I use this specific element?".',
-				'woocommerce'
+				'woocommerce-dual-api'
 			),
 			'args'        => array(
 				'name'      => array(
 					'type'        => Type::string(),
-					'description' => __( 'Match rows that carry a metadata entry with this name. Surviving rows have their entries trimmed to the matching one.', 'woocommerce' ),
+					'description' => __( 'Match rows that carry a metadata entry with this name. Surviving rows have their entries trimmed to the matching one.', 'woocommerce-dual-api' ),
 				),
 				'type'      => array(
 					'type'        => Type::string(),
-					'description' => __( 'Match rows whose target type equals this name.', 'woocommerce' ),
+					'description' => __( 'Match rows whose target type equals this name.', 'woocommerce-dual-api' ),
 				),
 				'field'     => array(
 					'type'        => Type::string(),
-					'description' => __( 'Match rows whose target field equals this name.', 'woocommerce' ),
+					'description' => __( 'Match rows whose target field equals this name.', 'woocommerce-dual-api' ),
 				),
 				'attribute' => array(
 					'type'        => Type::string(),
-					'description' => __( 'Match rows whose authorization carries an attribute with this class short name. Surviving rows have their authorization trimmed to the matching descriptors.', 'woocommerce' ),
+					'description' => __( 'Match rows whose authorization carries an attribute with this class short name. Surviving rows have their authorization trimmed to the matching descriptors.', 'woocommerce-dual-api' ),
 				),
 			),
 			'resolve'     => array( self::class, 'resolve' ),
@@ -254,32 +254,32 @@ class MetadataController {
 					'name'        => 'MetadataTarget',
 					'description' => __(
 						'One element of the schema with its attached metadata. Type-level rows have `field`, `argument` and `enumValue` set to null; field-level rows set `field` (and `argument` when the target is a field argument); enum-value rows set `enumValue`.',
-						'woocommerce'
+						'woocommerce-dual-api'
 					),
 					'fields'      => fn() => array(
 						'type'          => array(
 							'type'        => Type::nonNull( Type::string() ),
-							'description' => __( 'Name of the GraphQL type this row describes.', 'woocommerce' ),
+							'description' => __( 'Name of the GraphQL type this row describes.', 'woocommerce-dual-api' ),
 						),
 						'field'         => array(
 							'type'        => Type::string(),
-							'description' => __( 'Field name when this row describes a field (or a field argument); null for type-level rows.', 'woocommerce' ),
+							'description' => __( 'Field name when this row describes a field (or a field argument); null for type-level rows.', 'woocommerce-dual-api' ),
 						),
 						'argument'      => array(
 							'type'        => Type::string(),
-							'description' => __( 'Argument name when this row describes a field argument; null otherwise.', 'woocommerce' ),
+							'description' => __( 'Argument name when this row describes a field argument; null otherwise.', 'woocommerce-dual-api' ),
 						),
 						'enumValue'     => array(
 							'type'        => Type::string(),
-							'description' => __( 'Enum value name when this row describes one specific enum value; null otherwise.', 'woocommerce' ),
+							'description' => __( 'Enum value name when this row describes one specific enum value; null otherwise.', 'woocommerce-dual-api' ),
 						),
 						'entries'       => array(
 							'type'        => Type::nonNull( Type::listOf( Type::nonNull( self::get_entry_type() ) ) ),
-							'description' => __( 'Metadata entries attached to the target.', 'woocommerce' ),
+							'description' => __( 'Metadata entries attached to the target.', 'woocommerce-dual-api' ),
 						),
 						'authorization' => array(
 							'type'        => Type::nonNull( Type::listOf( Type::nonNull( self::get_auth_entry_type() ) ) ),
-							'description' => __( 'Authorization attributes attached to the target (e.g. `RequiredCapability`, `PublicAccess`, or plugin-defined). Empty when the target carries no authorization attributes.', 'woocommerce' ),
+							'description' => __( 'Authorization attributes attached to the target (e.g. `RequiredCapability`, `PublicAccess`, or plugin-defined). Empty when the target carries no authorization attributes.', 'woocommerce-dual-api' ),
 						),
 					),
 				)
@@ -298,15 +298,15 @@ class MetadataController {
 			self::$auth_entry_type = new ObjectType(
 				array(
 					'name'        => 'AuthEntry',
-					'description' => __( 'One authorization attribute attached to a schema target.', 'woocommerce' ),
+					'description' => __( 'One authorization attribute attached to a schema target.', 'woocommerce-dual-api' ),
 					'fields'      => fn() => array(
 						'attribute' => array(
 							'type'        => Type::nonNull( Type::string() ),
-							'description' => __( 'Short class name of the authorization attribute (e.g. `RequiredCapability`).', 'woocommerce' ),
+							'description' => __( 'Short class name of the authorization attribute (e.g. `RequiredCapability`).', 'woocommerce-dual-api' ),
 						),
 						'args'      => array(
 							'type'        => Type::nonNull( Type::listOf( self::get_value_scalar() ) ),
-							'description' => __( 'Constructor arguments supplied at the usage site, in source order. Element type is the same scalar union as `MetadataValue`.', 'woocommerce' ),
+							'description' => __( 'Constructor arguments supplied at the usage site, in source order. Element type is the same scalar union as `MetadataValue`.', 'woocommerce-dual-api' ),
 						),
 					),
 				)
@@ -323,18 +323,18 @@ class MetadataController {
 			self::$entry_type = new ObjectType(
 				array(
 					'name'        => 'MetadataEntry',
-					'description' => __( 'One metadata entry: a `name` plus a scalar `value`.', 'woocommerce' ),
+					'description' => __( 'One metadata entry: a `name` plus a scalar `value`.', 'woocommerce-dual-api' ),
 					'fields'      => fn() => array(
 						'name'  => array(
 							'type'        => Type::nonNull( Type::string() ),
-							'description' => __( 'Identifier of the entry (e.g. `internal`, `beta`).', 'woocommerce' ),
+							'description' => __( 'Identifier of the entry (e.g. `internal`, `beta`).', 'woocommerce-dual-api' ),
 						),
 						'value' => array(
 							// Nullable: `MetadataValue` itself permits a null payload (e.g.
 							// `#[Metadata( 'deprecated_reason', null )]`), so the wrapping
 							// must allow it through.
 							'type'        => self::get_value_scalar(),
-							'description' => __( 'Scalar payload associated with the entry. Null when the metadata entry carries a null value.', 'woocommerce' ),
+							'description' => __( 'Scalar payload associated with the entry. Null when the metadata entry carries a null value.', 'woocommerce-dual-api' ),
 						),
 					),
 				)
@@ -358,7 +358,7 @@ class MetadataController {
 					'name'         => 'MetadataValue',
 					'description'  => __(
 						'Scalar payload of a metadata entry. Accepts a string, integer, float, boolean, or null.',
-						'woocommerce'
+						'woocommerce-dual-api'
 					),
 					// Resolvers return the raw PHP scalar; webonyx serialises it as JSON directly.
 					'serialize'    => static fn( $value ) => $value,
