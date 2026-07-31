@@ -1,13 +1,10 @@
 <?php
-/**
- * WC_Dual_API_Loader class file.
- *
- * @package Automattic\WooCommerce\DualApi
- */
 
 declare(strict_types=1);
 
-defined( 'ABSPATH' ) || exit;
+namespace Automattic\WooCommerce\Internal\Api;
+
+use Automattic\WooCommerce\Api\Infrastructure\Main;
 
 /**
  * Bootstrap controller for the WooCommerce Dual API plugin.
@@ -34,11 +31,13 @@ defined( 'ABSPATH' ) || exit;
  * WooCommerce loads before site plugins) and keeps working if the engine
  * is ever merged back into core.
  *
- * This class is intentionally free of PHP 8.0+ syntax: the main plugin
- * file only loads it on PHP 8.1+, but keeping it parseable on 7.4 is
- * cheap insurance, mirroring core's Main class.
+ * The main plugin file requires this class explicitly instead of relying
+ * on the Composer autoloader: this is the component that decides whether
+ * that autoloader may be registered at all. For the same reason, its FQCN
+ * must not collide with anything that WooCommerce versions shipping the
+ * engine in core provide under this namespace.
  */
-class WC_Dual_API_Loader {
+class PluginLoader {
 
 	/**
 	 * Minimum WooCommerce version the plugin can run against.
@@ -50,12 +49,6 @@ class WC_Dual_API_Loader {
 	 * tested.
 	 */
 	const MINIMUM_WC_VERSION = '9.5';
-
-	/**
-	 * FQCN of the engine entry point, used both for the "does core ship
-	 * the engine?" probe and to boot the plugin's own copy.
-	 */
-	const MAIN_CLASS = 'Automattic\\WooCommerce\\Api\\Infrastructure\\Main';
 
 	/**
 	 * Option that enables the dual API feature in WooCommerce versions
@@ -111,7 +104,7 @@ class WC_Dual_API_Loader {
 		// registered, so that the class can only resolve through
 		// WooCommerce's own autoloaders: a hit means this WooCommerce
 		// version ships the dual API engine itself.
-		if ( class_exists( self::MAIN_CLASS ) ) {
+		if ( class_exists( Main::class ) ) {
 			self::enter_dormant_mode();
 			return;
 		}
@@ -140,12 +133,12 @@ class WC_Dual_API_Loader {
 		// Not a probe this time: the autoloader registered on the line
 		// above is expected to provide the class. Guards against an
 		// incomplete build.
-		if ( ! class_exists( self::MAIN_CLASS ) ) {
+		if ( ! class_exists( Main::class ) ) {
 			self::add_admin_notice( 'error', __( 'The WooCommerce Dual API plugin is incomplete: the API sources are missing.', 'woocommerce-dual-api' ) );
 			return;
 		}
 
-		call_user_func( array( self::MAIN_CLASS, 'register' ) );
+		Main::register();
 	}
 
 	/**
@@ -174,7 +167,7 @@ class WC_Dual_API_Loader {
 	/**
 	 * Queue an admin notice.
 	 *
-	 * @param string $type    Notice type: 'error' or 'info'.
+	 * @param string $type    Notice type: 'error', 'warning' or 'info'.
 	 * @param string $message Notice text, already translated.
 	 */
 	private static function add_admin_notice( string $type, string $message ): void {

@@ -54,6 +54,9 @@ if ( PHP_VERSION_ID < 80100 ) {
 	return;
 }
 
-require __DIR__ . '/includes/class-wc-dual-api-loader.php';
+// The loader is required explicitly rather than autoloaded: it is the
+// component that decides whether the Composer autoloader may be registered
+// at all (it must not be when WooCommerce ships the engine in core).
+require __DIR__ . '/src/Internal/Api/PluginLoader.php';
 
-WC_Dual_API_Loader::init();
+Automattic\WooCommerce\Internal\Api\PluginLoader::init();
