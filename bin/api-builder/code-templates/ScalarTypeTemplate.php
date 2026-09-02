@@ -3,6 +3,7 @@
  * Template for generating a GraphQL CustomScalarType class.
  *
  * @var string $namespace
+ * @var string $text_domain - Text domain for the generated `__()` calls.
  * @var string $class_name
  * @var string $graphql_name
  * @var string $description
@@ -33,7 +34,7 @@ class <?php echo $class_name; ?> {
 				array(
 					'name'         => '<?php echo $graphql_name; ?>',
 <?php if ( $description !== '' ) : ?>
-					'description'  => __( '<?php echo $escaped_description; ?>', 'woocommerce' ),
+					'description'  => __( '<?php echo $escaped_description; ?>', '<?php echo $text_domain; ?>' ),
 <?php endif; ?>
 <?php if ( ! empty( $metadata ) ) : ?>
 					'metadata'     => array(

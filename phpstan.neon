@@ -1,0 +1,42 @@
+includes:
+	- vendor/szepeviktor/phpstan-wordpress/extension.neon
+	- vendor/phpstan/phpstan-phpunit/extension.neon
+	# Errors present when the engine was extracted from WooCommerce core (which never ran PHPStan on
+	# it). Never add to this file: fix new errors in the code, and remove entries as they get fixed.
+	- phpstan-baseline.neon
+
+parameters:
+	tmpDir: tmp
+	level: 8
+	phpVersion: 80100
+	paths:
+		- woocommerce-dual-api.php
+		- src/
+		- bin/api-builder/
+	excludePaths:
+		# PHP templates rendered by ApiBuilder: mostly inline text, not analyzable code.
+		- bin/api-builder/code-templates/
+	bootstrapFiles:
+		- vendor/autoload.php
+	scanFiles:
+		- vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
+		- stubs/constants.stub
+	treatPhpDocTypesAsCertain: false
+	dynamicConstantNames:
+		# Kill switch defined (or not) in wp-config.php.
+		- WC_DUAL_API_DISABLED
+	ignoreErrors:
+		- identifier: missingType.iterableValue
+		# Traits offered to consumer plugins' code APIs; nothing in this plugin uses them.
+		-
+			identifier: trait.unused
+			paths:
+				- src/Api/InputTypes/TracksProvidedFields.php
+				- src/Api/Traits/RequiresManageWoocommerce.php
+		# The Type facade omits return types on purpose: they name engine classes, and the facade
+		# exists so generated code never depends on them (see src/Api/Infrastructure/Schema/README.md).
+		-
+			identifier: missingType.return
+			path: src/Api/Infrastructure/Schema/Type.php
+	parallel:
+		maximumNumberOfProcesses: 4

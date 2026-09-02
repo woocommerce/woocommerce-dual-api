@@ -1,3 +1,6 @@
 /vendor/
+/lib/vendor/
 /node_modules/
+/tmp/
+/.claude/
 .phpunit.result.cache

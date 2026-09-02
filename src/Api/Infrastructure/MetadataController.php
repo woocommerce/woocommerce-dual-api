@@ -221,7 +221,7 @@ class MetadataController {
 			$allowed = apply_filters( 'woocommerce_graphql_can_query_metadata', $allowed, $principal );
 		} catch ( \Throwable $e ) {
 			return false;
-		}
+		}//end try
 
 		return true === $allowed;
 	}
@@ -284,7 +284,7 @@ class MetadataController {
 					),
 				)
 			);
-		}
+		}//end if
 		return self::$target_type;
 	}
 
@@ -339,7 +339,7 @@ class MetadataController {
 					),
 				)
 			);
-		}
+		}//end if
 		return self::$entry_type;
 	}
 
@@ -390,7 +390,7 @@ class MetadataController {
 					},
 				)
 			);
-		}
+		}//end if
 		return self::$value_scalar;
 	}
 }

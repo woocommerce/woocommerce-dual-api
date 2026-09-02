@@ -1,42 +1,84 @@
 # WooCommerce Dual API
 
-WooCommerce extension providing the dual (code-first PHP + generated GraphQL) API engine, extracted from WooCommerce core.
+The engine behind the WooCommerce **dual API**: a code-first API architecture where you write plain PHP classes (the *code API*) and a build script generates a fully functional GraphQL endpoint that mirrors them. This plugin provides the engine (the build tooling, the attributes, the authorization model, the request pipeline, the caches and their settings); plugins use it to define their own dual APIs.
 
-This is "Flavor A" of the extraction analyzed in [DUAL_API_EXTRACTION.md](DUAL_API_EXTRACTION.md): the plugin keeps the `Automattic\WooCommerce\Api\*` and `Automattic\WooCommerce\Internal\Api\*` namespaces, so existing consumer plugins keep working unmodified and the merge-back-into-core path stays cheap.
+> **Experimental.** Everything under the `Automattic\WooCommerce\Api` namespace can change in backwards-incompatible ways, or be removed, in any release. Do not use it in production extensions.
 
-## Bootstrap behavior
+The documentation lives in this repository, under [`docs/`](docs/README.md). Start with [Creating a dual API in a plugin](docs/creating-a-dual-api-in-a-plugin.md), and see [woocommerce-simple-events](https://github.com/woocommerce/woocommerce-simple-events) for a complete, runnable example.
 
-Everything is decided on `woocommerce_loaded` by `Automattic\WooCommerce\Internal\Api\PluginLoader` (`src/Internal/Api/PluginLoader.php`), which the main plugin file requires explicitly — it is the component that decides whether the Composer autoloader gets registered at all. The engine-in-core detection is a capability probe — `class_exists( 'Automattic\WooCommerce\Api\Infrastructure\Main' )` evaluated *before* the plugin registers its own autoloader — rather than a version range check, so it is immune to plugin load-order variations (e.g. network-activated WooCommerce loading before site plugins) and keeps working if the engine is ever merged back into core.
+## Requirements
 
-| Environment | Result |
-| --- | --- |
-| WooCommerce without the in-core engine (11.2+) | Plugin registers its autoloader and boots the engine. Plugin activation is the on/off switch; there is no feature flag. |
-| WooCommerce with the in-core engine (10.9–11.1) | **Dormant**: the plugin must not load its class tree next to core's identical FQCNs, so it stays inert. A notice explains that on these versions the API is controlled by core's feature flag (see below). |
-| WooCommerce older than `PluginLoader::MINIMUM_WC_VERSION` | Inert, error notice. |
-| WooCommerce missing (reachable only on WordPress < 6.5; `Requires Plugins` blocks it otherwise) | Inert, error notice. |
-| PHP < 8.1 (reachable only if PHP was downgraded after activation; `Requires PHP` blocks it otherwise) | Inert, error notice. |
+- WooCommerce 11.2 or newer.
+- PHP 8.1 or newer.
 
-### The overlap window
+## Installation
 
-On WooCommerce versions where core still owns the engine, the on/off switch remains core's hidden `dual_code_graphql_api` feature flag. The plugin deliberately never writes that flag — it only reads it to tailor the dormant notice:
+Until a packaged release is available, install from source:
 
-- Flag enabled: an info notice on the Plugins screen states that the API is provided and controlled by WooCommerce itself.
-- Flag disabled: a warning notice states that the feature must be enabled to use the API, e.g. `wp option update woocommerce_feature_dual_code_graphql_api_enabled yes`.
+```sh
+cd wp-content/plugins
+git clone https://github.com/woocommerce/woocommerce-dual-api.git
+cd woocommerce-dual-api
+composer install --no-dev
+```
 
-### Kill switch
+Then activate **WooCommerce Dual API** in the Plugins screen. Activation is the only switch: there is no feature flag. The plugin registers no GraphQL endpoint of its own; endpoints come from the plugins that define a code API, through `Automattic\WooCommerce\Api\Infrastructure\Main::register_graphql_endpoint()`.
 
-`define( 'WC_DUAL_API_DISABLED', true );` in `wp-config.php` makes the plugin do nothing at all.
+The engine's settings (GET endpoint toggle, query depth and complexity limits, query caches) are under **WooCommerce → Settings → Advanced → GraphQL** and apply to every dual-API endpoint on the site.
 
-## Extraction status
+### Behavior on other WooCommerce versions
 
-Extraction source: `woocommerce/woocommerce` @ `7f118fa049c40043287d4a037f4ff18eb8520fbc` (trunk, 11.1.0-dev, everything under `plugins/woocommerce/`). Core-side API changes landing after that commit should be synced by diffing against this ref before the core removal PR.
+- **WooCommerce 10.9 to 11.1** ship the engine inside WooCommerce itself, behind the hidden `dual_code_graphql_api` feature flag. On those versions the plugin stays **dormant** (it must not load a second copy of the same classes) and shows an admin notice explaining that the flag is the switch there.
+- **Older than 10.9**: the plugin stays inactive with an error notice.
+- **PHP older than 8.1**: the plugin stays inactive with an error notice (the `Requires PHP` header normally prevents activation in the first place).
 
-- [x] Bootstrap (`woocommerce-dual-api.php`, `src/Internal/Api/PluginLoader.php`, `composer.json`)
-- [x] Move the infrastructure part of `src/Api/` and the hand-written part of `src/Internal/Api/` from core. The PoC code API (`Queries/`, `Mutations/`, `Types/`, `InputTypes/`, `Enums/`, `Interfaces/`, `Scalars/`, `Utils/{Coupons,Products}`) and its generated tree (`src/Internal/Api/Autogenerated/`) did not move: they stay in core and disappear with the engine's removal. Consequently the plugin registers no GraphQL endpoint of its own — endpoints come from consumer plugins via `Main::register_graphql_endpoint()`
-- [x] Move the vendored GraphQL engine (`lib/packages/GraphQL/`) and add `src/Api/Infrastructure/Schema/aliases.php` to `autoload.files`
-- [x] Adapt `Main` to activation semantics: `FeaturesUtil` and the core-endpoint registration dropped, `is_enabled()` reduced to the PHP version check
-- [x] Move `bin/api-builder/`; the engine's own runtime strings use the `woocommerce-dual-api` text domain
-- [ ] Port the re-vendoring setup for the GraphQL engine (in core: the Mozart package list in `lib/composer.json` plus the Mozart tool at `bin/composer/mozart/`; only `webonyx/graphql-php` applies here)
-- [ ] Decide the builder's distribution (release-bundled vs Composer package); parameterize the text domain it emits into generated code (it hardcodes `'woocommerce'`)
-- [ ] Port the infrastructure tests and the DummyApi fixture (the PoC tests don't move), phpcs/PHPStan config, and the staleness-check CI workflow; the test harness reuses core's, WFP-style (bootstrap against a WooCommerce checkout via `WC_DIR`)
-- [ ] Core removal PR (targeting the first WooCommerce release without the engine): bootstrap line, feature flag declaration, composer entries, tooling config, docs pointer
+Defining `WC_DUAL_API_DISABLED` as `true` in `wp-config.php` makes the plugin do nothing at all.
+
+### Extraction from WooCommerce core
+
+The engine was introduced as part of WooCommerce 10.9, together with a proof-of-concept API for products and coupons built on it. WooCommerce 11.2 removed both from core; the engine moved here unchanged (same namespaces, same option, filter and hook names, so existing code APIs keep working) and the proof of concept API was dropped.
+
+## Repository layout
+
+```text
+woocommerce-dual-api/
+├── woocommerce-dual-api.php        # plugin header and kill switches; hands over to PluginLoader
+├── bin/api-builder/                # ApiBuilder, build-api.php, check-api-staleness.php, code templates
+├── docs/                           # the dual API documentation (GitHub Pages-ready)
+├── lib/packages/GraphQL/           # webonyx/graphql-php, re-namespaced with Mozart (see lib/README.md)
+├── src/
+│   ├── Api/                        # public surface: Attributes/, Infrastructure/, Pagination/, exceptions
+│   └── Internal/Api/               # runtime internals: settings, query cache, endpoint registrar, PluginLoader
+└── tests/                          # PHPUnit suite; see tests/php/src/Internal/Api/README.md
+```
+
+`bin/api-builder/` ships with the plugin on purpose: a plugin's build script requires this plugin's `vendor/autoload.php` and calls `ApiBuilder::run_for_plugin()`, so building works against an installed copy as well as against a clone of this repository.
+
+## Development
+
+```sh
+composer install          # development dependencies (phpcs, PHPStan, PHPUnit, Mozart)
+composer phpcs            # coding standards (WooCommerce-Core ruleset)
+composer phpstan          # static analysis
+composer build:api:test   # regenerate the test fixture's GraphQL layer after changing the fixture or the builder
+composer build:api:check  # fail when the fixture's generated code is out of date
+```
+
+### Running the tests
+
+The tests run against WooCommerce's own test framework, loaded from a WooCommerce checkout, and need the WordPress test library and a MySQL database:
+
+```sh
+# Once: install WordPress and its test library (arguments: db-name db-user db-pass [db-host]).
+tests/bin/install-wp-tests.sh wordpress_test root root 127.0.0.1
+
+# Point WC_DIR at a WooCommerce checkout's plugins/woocommerce directory (11.2 or newer, or a
+# development build of it) with its Composer dependencies installed, then run the suite.
+WC_DIR=/path/to/woocommerce/plugins/woocommerce composer test
+```
+
+`WC_DIR` may be omitted when the WooCommerce monorepo is checked out next to this repository (`../woocommerce`). The checkout must not ship the engine in core (see above), since the engine classes would otherwise be defined twice.
+
+### Updating the vendored GraphQL engine
+
+See [lib/README.md](lib/README.md).

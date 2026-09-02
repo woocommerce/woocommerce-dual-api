@@ -3,6 +3,7 @@
  * Template for generating a query/mutation resolver class.
  *
  * @var string $namespace
+ * @var string $text_domain - Text domain for the generated `__()` calls.
  * @var string $class_name
  * @var string $graphql_name
  * @var string $description
@@ -92,7 +93,7 @@ class <?php echo $class_name; ?> {
 			'type' => <?php echo $return_type_expr; ?>,
 <?php endif; ?>
 <?php if ( $description !== '' ) : ?>
-			'description' => __( '<?php echo $escaped_description; ?>', 'woocommerce' ),
+			'description' => __( '<?php echo $escaped_description; ?>', '<?php echo $text_domain; ?>' ),
 <?php endif; ?>
 <?php if ( ! empty( $metadata ) ) : ?>
 			'metadata' => array(
@@ -116,7 +117,7 @@ class <?php echo $class_name; ?> {
 				'<?php echo $arg['name']; ?>' => array(
 					'type' => <?php echo $arg['type_expr']; ?>,
 	<?php if ( ! empty( $arg['description'] ) ) : ?>
-					'description' => __( '<?php echo addslashes( $arg['description'] ); ?>', 'woocommerce' ),
+					'description' => __( '<?php echo addslashes( $arg['description'] ); ?>', '<?php echo $text_domain; ?>' ),
 <?php endif; ?>
 	<?php if ( $arg['has_default'] ) : ?>
 					'defaultValue' => <?php echo var_export( $arg['default'], true ); ?>,

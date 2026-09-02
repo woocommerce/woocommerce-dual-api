@@ -14,6 +14,7 @@ use Automattic\WooCommerce\Vendor\GraphQL\Language\AST\ObjectTypeExtensionNode;
 use Automattic\WooCommerce\Vendor\GraphQL\Language\AST\ScalarTypeExtensionNode;
 use Automattic\WooCommerce\Vendor\GraphQL\Language\AST\SchemaDefinitionNode;
 use Automattic\WooCommerce\Vendor\GraphQL\Language\AST\SchemaExtensionNode;
+use Automattic\WooCommerce\Vendor\GraphQL\Language\AST\StringValueNode;
 use Automattic\WooCommerce\Vendor\GraphQL\Language\AST\TypeDefinitionNode;
 use Automattic\WooCommerce\Vendor\GraphQL\Language\AST\TypeExtensionNode;
 use Automattic\WooCommerce\Vendor\GraphQL\Language\AST\UnionTypeExtensionNode;
@@ -226,12 +227,32 @@ class SchemaExtender
         /** @var array<ScalarTypeExtensionNode> $extensionASTNodes */
         $extensionASTNodes = $this->extensionASTNodes($type);
 
+        $specifiedByURL = $type->specifiedByURL;
+        if ($specifiedByURL === null) {
+            foreach ($extensionASTNodes as $extensionNode) {
+                foreach ($extensionNode->directives as $directive) {
+                    if ($directive->name->value !== Directive::SPECIFIED_BY_NAME) {
+                        continue;
+                    }
+
+                    foreach ($directive->arguments as $argument) {
+                        if ($argument->name->value === Directive::URL_ARGUMENT_NAME
+                            && $argument->value instanceof StringValueNode) {
+                            $specifiedByURL = $argument->value->value;
+                            break 3;
+                        }
+                    }
+                }
+            }
+        }
+
         return new CustomScalarType([
             'name' => $type->name,
             'description' => $type->description,
             'serialize' => [$type, 'serialize'],
             'parseValue' => [$type, 'parseValue'],
             'parseLiteral' => [$type, 'parseLiteral'],
+            'specifiedByURL' => $specifiedByURL,
             'astNode' => $type->astNode,
             'extensionASTNodes' => $extensionASTNodes,
         ]);

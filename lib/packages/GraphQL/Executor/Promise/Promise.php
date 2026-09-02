@@ -2,24 +2,34 @@
 
 namespace Automattic\WooCommerce\Vendor\GraphQL\Executor\Promise;
 
-use Amp\Future as AmpFuture;
-use Amp\Promise as AmpPromise;
 use Automattic\WooCommerce\Vendor\GraphQL\Error\InvariantViolation;
-use Automattic\WooCommerce\Vendor\GraphQL\Executor\Promise\Adapter\SyncPromise;
-use React\Promise\PromiseInterface as ReactPromise;
 
 /**
  * Convenience wrapper for promises represented by Promise Adapter.
+ *
+ * The adopted promise is whatever the configured adapter produces (e.g.
+ * {@see \Automattic\WooCommerce\Vendor\GraphQL\Executor\Promise\Adapter\SyncPromise}, a ReactPHP promise or an
+ * amphp Future). It is kept as a generic so the concrete platform type never has
+ * to be named in this class, which would otherwise require importing a class
+ * that may not exist for the installed platform.
+ *
+ * @template TAdopted = mixed
  */
 class Promise
 {
-    /** @var SyncPromise|ReactPromise<mixed>|AmpFuture<mixed>|AmpPromise<mixed> */
+    /**
+     * @phpstan-var TAdopted
+     *
+     * @readonly
+     */
     public $adoptedPromise;
 
+    /** @phpstan-var PromiseAdapter<TAdopted> */
     private PromiseAdapter $adapter;
 
     /**
-     * @param mixed $adoptedPromise
+     * @phpstan-param TAdopted $adoptedPromise
+     * @phpstan-param PromiseAdapter<TAdopted> $adapter
      *
      * @throws InvariantViolation
      */
@@ -34,6 +44,7 @@ class Promise
         $this->adapter = $adapter;
     }
 
+    /** @phpstan-return Promise<TAdopted> */
     public function then(?callable $onFulfilled = null, ?callable $onRejected = null): Promise
     {
         return $this->adapter->then($this, $onFulfilled, $onRejected);

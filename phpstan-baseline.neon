@@ -1,0 +1,193 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Call to an undefined method Reflector\:\:getAttributes\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: bin/api-builder/ApiBuilder.php
+
+		-
+			message: '#^Cannot call method allowsNull\(\) on ReflectionType\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: bin/api-builder/ApiBuilder.php
+
+		-
+			message: '#^Instanceof between ReflectionClass\<object\> and ReflectionClass will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 2
+			path: bin/api-builder/ApiBuilder.php
+
+		-
+			message: '#^Method Automattic\\WooCommerce\\Api\\Infrastructure\\DesignTime\\ApiBuilder\:\:build_field_definition\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: bin/api-builder/ApiBuilder.php
+
+		-
+			message: '#^Method Automattic\\WooCommerce\\Api\\Infrastructure\\DesignTime\\ApiBuilder\:\:file_to_fqcn\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: bin/api-builder/ApiBuilder.php
+
+		-
+			message: '#^Method Automattic\\WooCommerce\\Api\\Infrastructure\\DesignTime\\ApiBuilder\:\:render_template\(\) should return string but returns string\|false\.$#'
+			identifier: return.type
+			count: 1
+			path: bin/api-builder/ApiBuilder.php
+
+		-
+			message: '#^Method Automattic\\WooCommerce\\Api\\Infrastructure\\DesignTime\\ApiBuilder\:\:walk_class_hierarchy\(\) should return list\<mixed\> but returns array\.$#'
+			identifier: return.type
+			count: 1
+			path: bin/api-builder/ApiBuilder.php
+
+		-
+			message: '#^Parameter \#1 \$objectOrClass of class ReflectionClass constructor expects class\-string\<T of object\>\|T of object, string given\.$#'
+			identifier: argument.type
+			count: 15
+			path: bin/api-builder/ApiBuilder.php
+
+		-
+			message: '#^Parameter \#1 \$string of function strtolower expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: bin/api-builder/ApiBuilder.php
+
+		-
+			message: '#^Parameter \#1 \$string of function strtoupper expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: bin/api-builder/ApiBuilder.php
+
+		-
+			message: '#^Parameter \#2 \$ref of method Automattic\\WooCommerce\\Api\\Infrastructure\\DesignTime\\ApiBuilder\:\:generate_enum\(\) expects ReflectionEnum\<UnitEnum\>, ReflectionClass\<object\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: bin/api-builder/ApiBuilder.php
+
+		-
+			message: '#^Parameter \#2 \$ref of method Automattic\\WooCommerce\\Api\\Infrastructure\\DesignTime\\ApiBuilder\:\:validate_enum\(\) expects ReflectionEnum\<UnitEnum\>, ReflectionClass\<object\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: bin/api-builder/ApiBuilder.php
+
+		-
+			message: '#^Parameter \#3 \$subject of function preg_replace expects array\<float\|int\|string\>\|string, string\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: bin/api-builder/ApiBuilder.php
+
+		-
+			message: '#^Parameter \#3 \$subject of function str_replace expects array\<string\>\|string, string\|false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: bin/api-builder/ApiBuilder.php
+
+		-
+			message: '#^Call to an undefined method object\:\:resolve_principal\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: src/Api/Infrastructure/GraphQLControllerBase.php
+
+		-
+			message: '#^Call to an undefined method object\:\:resolve_status\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Api/Infrastructure/GraphQLControllerBase.php
+
+		-
+			message: '#^Call to an undefined method object\:\:init\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Api/Infrastructure/Main.php
+
+		-
+			message: '#^Method Automattic\\WooCommerce\\Api\\Infrastructure\\Main\:\:instantiate_graphql_controller\(\) should return Automattic\\WooCommerce\\Api\\Infrastructure\\GraphQLControllerBase\|null but returns object\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Api/Infrastructure/Main.php
+
+		-
+			message: '#^Cannot access offset ''principal'' on array\<mixed, mixed\>\|object\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: src/Api/Infrastructure/MetadataController.php
+
+		-
+			message: '#^Call to an undefined method object\:\:authorize\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: src/Api/Infrastructure/ResolverHelpers.php
+
+		-
+			message: '#^Call to an undefined method object\:\:execute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Api/Infrastructure/ResolverHelpers.php
+
+		-
+			message: '#^Method Automattic\\WooCommerce\\Api\\Infrastructure\\ResolverHelpers\:\:collect_authorization_instances\(\) has parameter \$source with generic class ReflectionClass but does not specify its types\: T$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Api/Infrastructure/ResolverHelpers.php
+
+		-
+			message: '#^Method Automattic\\WooCommerce\\Api\\Infrastructure\\ResolverHelpers\:\:harvest_class_metadata\(\) has parameter \$ref with generic class ReflectionClass but does not specify its types\: T$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Api/Infrastructure/ResolverHelpers.php
+
+		-
+			message: '#^Unable to resolve the template type T in call to static method Automattic\\WooCommerce\\Vendor\\GraphQL\\Type\\Definition\\Type\:\:listOf\(\)$#'
+			identifier: argument.templateType
+			count: 1
+			path: src/Api/Infrastructure/Schema/Type.php
+
+		-
+			message: '#^Parameter \#2 \$offset of function array_slice expects int, float\|int\<0, max\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Api/Pagination/Connection.php
+
+		-
+			message: '#^Call to an undefined method object\:\:getTypeMap\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Api/Utils/SchemaHandle.php
+
+		-
+			message: '#^Method Automattic\\WooCommerce\\Api\\Utils\\SchemaHandle\:\:read_element_authorization\(\) should return list\<array\{attribute\: string, args\: list\<mixed\>\}\> but returns array\<mixed\>\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Api/Utils/SchemaHandle.php
+
+		-
+			message: '#^Method Automattic\\WooCommerce\\Api\\Utils\\SchemaHandle\:\:read_type_authorization\(\) should return list\<array\{attribute\: string, args\: list\<mixed\>\}\> but returns array\<mixed\>\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Api/Utils/SchemaHandle.php
+
+		-
+			message: '#^Parameter \#1 \$route_namespace of function register_rest_route expects non\-falsy\-string, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Internal/Api/GraphQLEndpointRegistrar.php
+
+		-
+			message: '#^Parameter \#2 \$route of function register_rest_route expects non\-falsy\-string, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Internal/Api/GraphQLEndpointRegistrar.php
+
+		-
+			message: '#^Method Automattic\\WooCommerce\\Internal\\Api\\QueryCache\:\:get_cached_document\(\) should return Automattic\\WooCommerce\\Vendor\\GraphQL\\Language\\AST\\DocumentNode\|false but returns Automattic\\WooCommerce\\Vendor\\GraphQL\\Language\\AST\\Node\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Internal/Api/QueryCache.php
+
+		-
+			message: '#^Method Automattic\\WooCommerce\\Internal\\Api\\QueryCache\:\:read_from_opcache\(\) should return Automattic\\WooCommerce\\Vendor\\GraphQL\\Language\\AST\\DocumentNode\|false but returns Automattic\\WooCommerce\\Vendor\\GraphQL\\Language\\AST\\Node\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Internal/Api/QueryCache.php

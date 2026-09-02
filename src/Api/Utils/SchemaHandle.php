@@ -126,7 +126,7 @@ final class SchemaHandle {
 					}
 				}
 			}
-		}
+		}//end foreach
 
 		return $rows;
 	}
@@ -177,7 +177,7 @@ final class SchemaHandle {
 				$row['authorization'] = $matching;
 			}
 			$result[] = $row;
-		}
+		}//end foreach
 
 		return $result;
 	}

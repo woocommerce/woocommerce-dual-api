@@ -1,0 +1,22 @@
+# Excluded from release builds (wp dist-archive). bin/api-builder/ is
+# deliberately NOT excluded: consumers build their GraphQL layer against
+# the installed plugin.
+/.claude
+/.git
+/.github
+/lib/vendor
+/node_modules
+/tests
+/tmp
+/.distignore
+/.gitignore
+/.markdownlint.json
+/docs
+/.phpunit.result.cache
+/composer.lock
+/lib/composer.json
+/lib/composer.lock
+/phpcs.xml
+/phpstan.neon
+/phpstan-baseline.neon
+/phpunit.xml

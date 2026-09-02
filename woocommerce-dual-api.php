@@ -1,7 +1,7 @@
 <?php
 /**
- * Plugin Name: WooCommerce Dual API
- * Description: Experimental code-first dual (PHP + GraphQL) API engine for WooCommerce, extracted from WooCommerce core.
+ * Plugin Name: WooCommerce Dual API Engine
+ * Description: Experimental code-first dual (PHP + GraphQL) API engine for WooCommerce.
  * Version: 0.1.0
  * Author: Automattic
  * Author URI: https://woocommerce.com
@@ -9,6 +9,7 @@
  * Requires at least: 6.5
  * Requires PHP: 8.1
  * Requires Plugins: woocommerce
+ * WC requires at least: 11.2
  * License: GPLv3
  * Update URI: false
  *
@@ -52,11 +53,11 @@ if ( PHP_VERSION_ID < 80100 ) {
 	);
 
 	return;
-}
+}//end if
 
 // The loader is required explicitly rather than autoloaded: it is the
 // component that decides whether the Composer autoloader may be registered
 // at all (it must not be when WooCommerce ships the engine in core).
 require __DIR__ . '/src/Internal/Api/PluginLoader.php';
 
-Automattic\WooCommerce\Internal\Api\PluginLoader::init();
+Automattic\WooCommerce\Internal\Api\PluginLoader::run();

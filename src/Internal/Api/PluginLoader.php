@@ -11,25 +11,26 @@ use Automattic\WooCommerce\Api\Infrastructure\Main;
  *
  * Once WooCommerce has loaded, the plugin runs in one of three modes:
  *
- * - Active: this WooCommerce version doesn't ship the dual API engine in
- *   core, so the plugin registers its own autoloader and boots the engine.
- *   Plugin activation is the on/off switch; there is no feature flag.
+ * - Active: WooCommerce 11.2 or newer, which doesn't ship the dual API
+ *   engine in core. The plugin registers its own autoloader and boots the
+ *   engine. Plugin activation is the on/off switch; there is no feature flag.
  *
- * - Dormant: this WooCommerce version still ships the engine in core
- *   (10.9-11.1). The plugin must not register its autoloader (its class
- *   names are the same as core's), so it stays inert and shows an admin
- *   notice instead; core's dual_code_graphql_api feature flag remains the
- *   on/off switch on these versions, and the notice says so. Consumer
- *   plugins work identically against core's copy, since their contract is
- *   the Automattic\WooCommerce\Api namespace and core provides it.
+ * - Dormant: WooCommerce 10.9, 11.0 or 11.1, which ship the engine in core.
+ *   The plugin must not register its autoloader (its class names are the
+ *   same as core's), so it stays inert and shows an admin notice instead;
+ *   core's dual_code_graphql_api feature flag remains the on/off switch on
+ *   these versions, and the notice says so. Consumer plugins work
+ *   identically against core's copy, since their contract is the
+ *   Automattic\WooCommerce\Api namespace and core provides it.
  *
- * - Inert with an admin notice: WooCommerce is missing or too old.
+ * - Inert with an admin notice: WooCommerce is missing or older than 10.9.
  *
  * "Does core ship the engine?" is a capability probe (class_exists on Main
  * before this plugin's autoloader is registered) rather than a version
  * check, so it works regardless of plugin load order (network-activated
- * WooCommerce loads before site plugins) and keeps working if the engine
- * is ever merged back into core.
+ * WooCommerce loads before site plugins), on development builds of the
+ * WooCommerce versions above, and if the engine is ever merged back into
+ * core.
  *
  * The main plugin file requires this class explicitly instead of relying
  * on the Composer autoloader: this is the component that decides whether
@@ -40,15 +41,14 @@ use Automattic\WooCommerce\Api\Infrastructure\Main;
 class PluginLoader {
 
 	/**
-	 * Minimum WooCommerce version the plugin can run against.
+	 * Minimum WooCommerce version the plugin can run against: the first
+	 * release that doesn't ship the dual API engine in core.
 	 *
-	 * WooCommerce's DI container resolves classes under the
-	 * Automattic\WooCommerce\ prefix from any autoloader starting with 9.5;
-	 * older containers required explicit registration. Expected to be
-	 * raised as the extraction progresses and compatibility is actually
-	 * tested.
+	 * Versions 10.9 to 11.1 ship the engine themselves and are handled by
+	 * the dormant mode (see the class docblock); the check against this
+	 * constant only ever fires for versions older than 10.9.
 	 */
-	const MINIMUM_WC_VERSION = '9.5';
+	const MINIMUM_WC_VERSION = '11.2';
 
 	/**
 	 * Option that enables the dual API feature in WooCommerce versions
@@ -67,7 +67,7 @@ class PluginLoader {
 	/**
 	 * Attach the bootstrap hooks. Called once from the main plugin file.
 	 */
-	public static function init(): void {
+	public static function run(): void {
 		add_action( 'plugins_loaded', array( __CLASS__, 'handle_plugins_loaded' ) );
 
 		// When WooCommerce loads before this plugin (e.g. network-activated

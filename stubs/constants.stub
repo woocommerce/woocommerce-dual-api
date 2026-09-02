@@ -1,0 +1,13 @@
+<?php
+/**
+ * PHPStan stub for the plugin's constants.
+ *
+ * WC_DUAL_API_* are defined in the main plugin file after runtime checks, and
+ * WC_VERSION is defined by WooCommerce; PHPStan cannot discover any of them on
+ * its own, so they are declared here with placeholder values.
+ */
+
+define( 'WC_DUAL_API_VERSION', '' );
+define( 'WC_DUAL_API_PLUGIN_FILE', '' );
+define( 'WC_DUAL_API_DISABLED', false );
+define( 'WC_VERSION', '' );

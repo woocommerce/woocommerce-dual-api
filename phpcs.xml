@@ -1,0 +1,194 @@
+<?xml version="1.0"?>
+<ruleset name="WooCommerce Dual API Coding Standards">
+	<description>WooCommerce Dual API PHP_CodeSniffer ruleset.</description>
+
+	<file>.</file>
+
+	<!-- Exclude paths -->
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+	<exclude-pattern>*/tmp/*</exclude-pattern>
+	<!-- Re-vendored third-party code. -->
+	<exclude-pattern>lib/</exclude-pattern>
+	<!-- The dummy code API used by the tests and the tree generated from it. -->
+	<exclude-pattern>tests/php/src/Internal/Api/Fixtures/</exclude-pattern>
+
+	<!-- Only check PHP files. -->
+	<arg name="extensions" value="php" />
+
+	<!-- Show progress, show the error codes for each message (source). -->
+	<arg value="ps" />
+
+	<!-- Strip the filepaths in reports down to the relevant bit. -->
+	<arg name="basepath" value="./" />
+
+	<!-- Check up to 8 files simultaneously. -->
+	<arg name="parallel" value="8" />
+
+	<!-- Configs -->
+	<config name="minimum_supported_wp_version" value="6.5" />
+	<config name="testVersion" value="8.1-" />
+
+	<!-- Rules -->
+	<rule ref="WooCommerce-Core">
+		<exclude name="WooCommerce.Commenting.CommentHooks.MissingSinceComment" />
+	</rule>
+
+	<rule ref="WooCommerce.Functions.InternalInjectionMethod">
+		<include-pattern>src/</include-pattern>
+		<properties>
+			<property name="injectionMethod" value="init"/>
+		</properties>
+	</rule>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="woocommerce-dual-api" />
+			</property>
+		</properties>
+	</rule>
+
+	<rule ref="PHPCompatibility">
+		<exclude-pattern>tests/</exclude-pattern>
+	</rule>
+
+	<rule ref="WordPress.WP.Capabilities">
+		<properties>
+			<property name="custom_capabilities" type="array">
+				<element value="manage_woocommerce"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- The test bootstrap follows WooCommerce core's (a class in a non-class-named file). -->
+	<rule ref="WordPress.Files.FileName.InvalidClassFileName">
+		<exclude-pattern>tests/bootstrap.php</exclude-pattern>
+	</rule>
+
+	<!-- PSR-4 code: class-per-file naming instead of WordPress file naming. -->
+	<rule ref="WordPress.Files.FileName.InvalidClassFileName">
+		<exclude-pattern>src/</exclude-pattern>
+		<exclude-pattern>tests/php/src/</exclude-pattern>
+		<exclude-pattern>bin/api-builder/</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.Files.FileName.NotHyphenatedLowercase">
+		<exclude-pattern>src/</exclude-pattern>
+		<exclude-pattern>tests/php/</exclude-pattern>
+		<exclude-pattern>bin/api-builder/</exclude-pattern>
+	</rule>
+	<rule ref="Squiz.Classes.ClassFileName">
+		<include-pattern>src/</include-pattern>
+		<include-pattern>tests/php/src/</include-pattern>
+	</rule>
+	<rule ref="Squiz.Classes.ValidClassName">
+		<include-pattern>src/</include-pattern>
+		<include-pattern>tests/php/src/</include-pattern>
+	</rule>
+	<rule ref="Squiz.Commenting.FileComment.MissingPackageTag">
+		<exclude-pattern>src/</exclude-pattern>
+		<exclude-pattern>tests/php/</exclude-pattern>
+		<exclude-pattern>bin/api-builder/</exclude-pattern>
+	</rule>
+	<rule ref="Squiz.Commenting.FileComment.Missing">
+		<exclude-pattern>src/</exclude-pattern>
+		<exclude-pattern>tests/php/</exclude-pattern>
+		<exclude-pattern>bin/api-builder/</exclude-pattern>
+	</rule>
+	<rule ref="Generic.Commenting">
+		<exclude-pattern>tests/</exclude-pattern>
+	</rule>
+
+	<!-- PHP 8.0 `mixed` type hint is valid but not recognized by the Squiz sniff -->
+	<rule ref="Squiz.Commenting.FunctionComment.InvalidTypeHint">
+		<exclude-pattern>src/Api/</exclude-pattern>
+	</rule>
+
+	<!-- Suppress variable comments where #[Description] attributes serve as documentation -->
+	<rule ref="Squiz.Commenting.VariableComment.Missing">
+		<exclude-pattern>src/Api/Pagination/</exclude-pattern>
+	</rule>
+
+	<!-- Cursor-based pagination legitimately uses base64 for opaque cursors -->
+	<rule ref="WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode">
+		<exclude-pattern>src/Api/</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode">
+		<exclude-pattern>src/Api/</exclude-pattern>
+	</rule>
+
+	<!-- Reserved keyword parameter names ($type, $default, $class, $parent) are
+	     unavoidable in attribute definitions, autoloader closures, and generated code. -->
+	<rule ref="Universal.NamingConventions.NoReservedKeywordParameterNames">
+		<exclude-pattern>src/Api/Attributes/Parameter.php</exclude-pattern>
+		<exclude-pattern>src/Api/Infrastructure/</exclude-pattern>
+		<exclude-pattern>src/Internal/Api/</exclude-pattern>
+	</rule>
+
+	<rule ref="WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase">
+		<exclude-pattern>src/Api/Infrastructure/GraphQLControllerBase.php</exclude-pattern>
+		<exclude-pattern>src/Api/Infrastructure/QueryInfoExtractor.php</exclude-pattern>
+		<exclude-pattern>src/Internal/Api/QueryComplexityRule.php</exclude-pattern>
+		<exclude-pattern>src/Internal/Api/QueryDepthRule.php</exclude-pattern>
+	</rule>
+
+	<!-- The builder uses empty if/elseif for intentional no-ops (e.g. enum
+	     properties need no conversion) with a comment explaining why. -->
+	<rule ref="Generic.CodeAnalysis.EmptyStatement">
+		<exclude-pattern>bin/api-builder/</exclude-pattern>
+	</rule>
+
+	<!-- Code templates: suppress rules that don't apply to PHP templates -->
+	<rule ref="Generic.PHP.RequireStrictTypes">
+		<exclude-pattern>bin/api-builder/code-templates/</exclude-pattern>
+	</rule>
+	<rule ref="PSR12.Files.FileHeader">
+		<exclude-pattern>bin/api-builder/code-templates/</exclude-pattern>
+	</rule>
+	<rule ref="Generic.Commenting">
+		<exclude-pattern>bin/api-builder/code-templates/</exclude-pattern>
+	</rule>
+	<rule ref="Squiz.Commenting">
+		<exclude-pattern>bin/api-builder/code-templates/</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.PHP.DiscouragedPHPFunctions.serialize_var_export">
+		<exclude-pattern>bin/api-builder/code-templates/</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.CodeAnalysis.AssignmentInTernaryCondition">
+		<exclude-pattern>bin/api-builder/code-templates/</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.PHP.DontExtract">
+		<exclude-pattern>bin/api-builder/code-templates/</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.Security.EscapeOutput">
+		<exclude-pattern>bin/api-builder/code-templates/</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.PHP.YodaConditions">
+		<exclude-pattern>bin/api-builder/code-templates/</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.PHP.DevelopmentFunctions">
+		<exclude-pattern>bin/api-builder/code-templates/</exclude-pattern>
+	</rule>
+	<rule ref="Generic.WhiteSpace.ScopeIndent">
+		<exclude-pattern>bin/api-builder/code-templates/</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.WP.GlobalVariablesOverride">
+		<exclude-pattern>bin/api-builder/code-templates/</exclude-pattern>
+	</rule>
+	<!-- Templates emit `use` statements through a `$use_statements` variable. -->
+	<rule ref="Universal.NamingConventions.NoReservedKeywordParameterNames">
+		<exclude-pattern>bin/api-builder/code-templates/</exclude-pattern>
+	</rule>
+
+	<!-- Build scripts and the test bootstrap: CLI-only code, suppress WordPress-specific rules -->
+	<rule ref="WordPress.PHP.DiscouragedPHPFunctions.system_calls_exec">
+		<exclude-pattern>bin/api-builder/</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.WP.AlternativeFunctions">
+		<exclude-pattern>bin/api-builder/</exclude-pattern>
+		<exclude-pattern>tests/php/src/Api/Infrastructure/DesignTime/</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.Security.EscapeOutput">
+		<exclude-pattern>bin/api-builder/</exclude-pattern>
+	</rule>
+</ruleset>

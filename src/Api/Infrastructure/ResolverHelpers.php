@@ -253,7 +253,7 @@ class ResolverHelpers {
 				}
 				$stack = array_merge( $stack, $source->getTraits(), $source->getInterfaces() );
 			}
-		}
+		}//end if
 
 		$query_metadata = self::harvest_class_metadata( $ref );
 
@@ -410,7 +410,7 @@ class ResolverHelpers {
 				return false;
 			}
 			$principal_seen = true;
-		}
+		}//end foreach
 		return true;
 	}
 

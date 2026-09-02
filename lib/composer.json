@@ -1,0 +1,38 @@
+{
+	"name": "automattic/woocommerce-dual-api-lib",
+	"description": "Re-vendors the GraphQL engine under the Automattic\\WooCommerce\\Vendor namespace. Not installed at runtime; see README.md.",
+	"prefer-stable": true,
+	"minimum-stability": "dev",
+	"require": {
+		"php": ">=8.1"
+	},
+	"require-dev": {
+		"webonyx/graphql-php": "^15.31"
+	},
+	"config": {
+		"platform": {
+			"php": "8.1.0"
+		}
+	},
+	"scripts": {
+		"post-install-cmd": [
+			"\"../vendor/bin/mozart\" compose"
+		],
+		"post-update-cmd": [
+			"\"../vendor/bin/mozart\" compose"
+		]
+	},
+	"extra": {
+		"mozart": {
+			"dep_namespace": "Automattic\\WooCommerce\\Vendor\\",
+			"dep_directory": "/packages/",
+			"packages": [
+				"webonyx/graphql-php"
+			],
+			"excluded_packages": [],
+			"classmap_directory": "/classes/",
+			"classmap_prefix": "WC_Vendor_",
+			"delete_vendor_directories": true
+		}
+	}
+}

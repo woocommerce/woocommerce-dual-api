@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<phpunit
+	bootstrap="tests/bootstrap.php"
+	backupGlobals="false"
+	colors="true"
+	convertErrorsToExceptions="true"
+	convertNoticesToExceptions="true"
+	convertWarningsToExceptions="true"
+	>
+	<testsuites>
+		<testsuite name="woocommerce-dual-api">
+			<directory suffix="Test.php">./tests/php/src</directory>
+		</testsuite>
+	</testsuites>
+	<coverage>
+		<include>
+			<directory suffix=".php">./src</directory>
+			<directory suffix=".php">./bin/api-builder</directory>
+		</include>
+		<exclude>
+			<directory suffix=".php">./vendor</directory>
+			<directory suffix=".php">./lib</directory>
+		</exclude>
+	</coverage>
+</phpunit>
