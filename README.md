@@ -4,7 +4,7 @@ The engine behind the WooCommerce **dual API**: a code-first API architecture wh
 
 > **Experimental.** Everything under the `Automattic\WooCommerce\Api` namespace can change in backwards-incompatible ways, or be removed, in any release. Do not use it in production extensions.
 
-The documentation lives in this repository, under [`docs/`](docs/README.md). Start with [Creating a dual API in a plugin](docs/creating-a-dual-api-in-a-plugin.md), and see [woocommerce-simple-events](https://github.com/woocommerce/woocommerce-simple-events) for a complete, runnable example.
+The documentation lives in [the GitHub pages site for this repository](https://woocommerce.github.io/woocommerce-dual-api/). Start with [Creating a dual API in a plugin](https://woocommerce.github.io/woocommerce-dual-api/creating-a-dual-api-in-a-plugin.html), and see [woocommerce-simple-events](https://github.com/woocommerce/woocommerce-simple-events) for a complete, runnable example.
 
 ## Requirements
 
@@ -44,7 +44,7 @@ The engine was introduced as part of WooCommerce 10.9, together with a proof-of-
 woocommerce-dual-api/
 ├── woocommerce-dual-api.php        # plugin header and kill switches; hands over to PluginLoader
 ├── bin/api-builder/                # ApiBuilder, build-api.php, check-api-staleness.php, code templates
-├── docs/                           # the dual API documentation (GitHub Pages-ready)
+├── docs/                           # the dual API documentation (also in GitHub Pages)
 ├── lib/packages/GraphQL/           # webonyx/graphql-php, re-namespaced with Mozart (see lib/README.md)
 ├── src/
 │   ├── Api/                        # public surface: Attributes/, Infrastructure/, Pagination/, exceptions
