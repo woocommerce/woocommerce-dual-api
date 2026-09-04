@@ -128,6 +128,7 @@
 	<rule ref="WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase">
 		<exclude-pattern>src/Api/Infrastructure/GraphQLControllerBase.php</exclude-pattern>
 		<exclude-pattern>src/Api/Infrastructure/QueryInfoExtractor.php</exclude-pattern>
+		<exclude-pattern>src/Internal/Api/OverlappingFieldsRule.php</exclude-pattern>
 		<exclude-pattern>src/Internal/Api/QueryComplexityRule.php</exclude-pattern>
 		<exclude-pattern>src/Internal/Api/QueryDepthRule.php</exclude-pattern>
 	</rule>

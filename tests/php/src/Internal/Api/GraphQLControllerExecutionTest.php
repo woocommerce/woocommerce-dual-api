@@ -83,6 +83,82 @@ class GraphQLControllerExecutionTest extends WC_REST_Unit_Test_Case {
 	}
 
 	/**
+	 * @testdox a capability-gated field repeated hundreds of times yields a single authorization error, not a flood of validation errors.
+	 */
+	public function test_repeated_gated_field_yields_a_single_error(): void {
+		wp_set_current_user( 0 );
+
+		$response = $this->sut->handle_request(
+			$this->post_request( array( 'query' => '{ ' . str_repeat( 'widget(id: 1) { id } ', 500 ) . '}' ) )
+		);
+
+		$data = $response->get_data();
+		$this->assertSame( 401, $response->get_status() );
+		$this->assertCount( 1, $data['errors'] );
+		$this->assertSame( 'UNAUTHORIZED', $data['errors'][0]['extensions']['code'] ?? null );
+		$this->assertArrayNotHasKey( 'extensions', $data );
+	}
+
+	/**
+	 * @testdox distinct fields sharing a response name past the comparison budget are rejected with one error.
+	 */
+	public function test_field_merge_comparison_budget_is_enforced(): void {
+		$fields = array();
+		for ( $i = 1; $i <= 450; $i++ ) {
+			$fields[] = "widget(id: $i) { id }";
+		}
+
+		$response = $this->sut->handle_request(
+			$this->post_request( array( 'query' => '{ ' . implode( ' ', $fields ) . ' }' ) )
+		);
+
+		$data = $response->get_data();
+		$this->assertSame( 400, $response->get_status() );
+		$this->assertCount( 1, $data['errors'] );
+		$this->assertSame( 'Too many field comparisons, query is too complex to validate.', $data['errors'][0]['message'] );
+	}
+
+	/**
+	 * @testdox a document over the complexity limit is rejected with that error alone, before the other rules run.
+	 */
+	public function test_complexity_limit_is_enforced_before_the_other_rules(): void {
+		$fields = array();
+		for ( $i = 0; $i < 2000; $i++ ) {
+			$fields[] = "a$i: __typename";
+		}
+		// The unknown field would be reported by the full rule set.
+		$fields[] = 'noSuchField';
+
+		$response = $this->sut->handle_request(
+			$this->post_request( array( 'query' => '{ ' . implode( ' ', $fields ) . ' }' ) )
+		);
+
+		$data = $response->get_data();
+		$this->assertSame( 400, $response->get_status() );
+		$this->assertCount( 1, $data['errors'] );
+		$this->assertSame( 'Maximum query complexity exceeded.', $data['errors'][0]['message'] );
+	}
+
+	/**
+	 * @testdox at most MAX_ERRORS_PER_RESPONSE errors are returned, with the number omitted in extensions.
+	 */
+	public function test_errors_are_capped_per_response(): void {
+		$fields = array();
+		for ( $i = 0; $i < 150; $i++ ) {
+			$fields[] = "a$i: noSuchField";
+		}
+
+		$response = $this->sut->handle_request(
+			$this->post_request( array( 'query' => '{ ' . implode( ' ', $fields ) . ' }' ) )
+		);
+
+		$data = $response->get_data();
+		$this->assertSame( 400, $response->get_status() );
+		$this->assertCount( GraphQLControllerBase::MAX_ERRORS_PER_RESPONSE, $data['errors'] );
+		$this->assertSame( 150 - GraphQLControllerBase::MAX_ERRORS_PER_RESPONSE, $data['extensions']['omittedErrors'] );
+	}
+
+	/**
 	 * @testdox handle_request returns 200 + data for a successful query.
 	 */
 	public function test_handle_request_returns_200_for_successful_query(): void {
