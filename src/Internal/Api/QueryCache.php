@@ -18,6 +18,16 @@ use Automattic\WooCommerce\Vendor\GraphQL\Utils\AST;
  * are written as PHP files so that OPcache serves them from shared memory.
  * The WP object cache is used as a fallback when OPcache isn't available or
  * the cache directory isn't writable.
+ *
+ * Caching happens right after parsing, before the query is validated against
+ * the schema and before any resolver authorizes the caller, so every
+ * syntactically valid query reaching the endpoint (anonymous ones included)
+ * would otherwise persist a cache entry. Three bounds keep that footprint
+ * finite: queries longer than {@see self::get_max_cacheable_query_bytes()}
+ * are never persisted, and the OPcache backend stops adding files once the
+ * cache directory holds {@see self::get_max_opcache_files()} of them or
+ * {@see self::get_max_opcache_bytes()} in total. All are limits on
+ * persistence only: the query is still parsed and served.
  */
 class QueryCache {
 	/**
@@ -55,6 +65,41 @@ class QueryCache {
 	public const DEFAULT_CACHE_TTL = DAY_IN_SECONDS;
 
 	/**
+	 * Default maximum length (in bytes) of a query string whose parsed AST is
+	 * persisted, on either backend.
+	 *
+	 * Bounds the size of a single cache entry: the exported AST of a query
+	 * made of many tiny fields is over twenty times larger than the query
+	 * itself. Longer queries are still parsed and served on every request.
+	 * See {@see self::get_max_cacheable_query_bytes()} for the accessor.
+	 */
+	public const DEFAULT_MAX_CACHEABLE_QUERY_BYTES = 16384;
+
+	/**
+	 * Default maximum number of AST files kept in the OPcache cache directory.
+	 *
+	 * Bounds the number of cache entries (and so the cost of listing the
+	 * directory and of the TTL sweep). Once reached, new queries are parsed
+	 * on every request until the sweep ({@see OpcacheFileExpiry}) frees room.
+	 * See {@see self::get_max_opcache_files()} for the accessor.
+	 */
+	public const DEFAULT_MAX_OPCACHE_FILES = 1000;
+
+	/**
+	 * Default maximum total size (in bytes) of the AST files kept in the
+	 * OPcache cache directory.
+	 *
+	 * Bounds the disk space the file backend takes and, since OPcache keeps a
+	 * compiled copy of every file it serves (about 1.4 times the file size),
+	 * the shared memory it can claim from the rest of the site. A file count
+	 * alone can't do that: the exported AST of a query is between 30 and 230
+	 * times the query's size, so 1000 files of the largest cacheable query
+	 * would take gigabytes. See {@see self::get_max_opcache_bytes()} for the
+	 * accessor.
+	 */
+	public const DEFAULT_MAX_OPCACHE_BYTES = 32 * MB_IN_BYTES;
+
+	/**
 	 * The time-to-live (in seconds) for a cached parsed query.
 	 *
 	 * Reads the {@see Main::OPTION_QUERY_CACHE_TTL} store option; falls back
@@ -64,6 +109,69 @@ class QueryCache {
 	public static function get_cache_ttl(): int {
 		$value = (int) get_option( Main::OPTION_QUERY_CACHE_TTL, self::DEFAULT_CACHE_TTL );
 		return $value > 0 ? $value : self::DEFAULT_CACHE_TTL;
+	}
+
+	/**
+	 * The maximum length (in bytes) of a query string whose parsed AST is
+	 * persisted to the cache. Zero means no limit.
+	 */
+	public static function get_max_cacheable_query_bytes(): int {
+		/**
+		 * Filters the maximum length (in bytes) of a GraphQL query string whose
+		 * parsed AST is persisted to the query cache (OPcache file backend,
+		 * object cache and APQ registrations alike).
+		 *
+		 * Longer queries are still parsed and served; only the cache write is
+		 * skipped. Return 0 to remove the limit.
+		 *
+		 * @since 0.1.0
+		 *
+		 * @param int $max_bytes The maximum cacheable query length in bytes.
+		 */
+		$value = (int) apply_filters( 'woocommerce_graphql_max_cacheable_query_bytes', self::DEFAULT_MAX_CACHEABLE_QUERY_BYTES );
+		return max( 0, $value );
+	}
+
+	/**
+	 * The maximum number of AST files kept in the OPcache cache directory.
+	 * Zero means no limit.
+	 */
+	public static function get_max_opcache_files(): int {
+		/**
+		 * Filters the maximum number of parsed-query files kept in the OPcache
+		 * cache directory.
+		 *
+		 * Once the directory holds this many files, queries that aren't cached
+		 * yet are parsed on every request (and not persisted) until the TTL
+		 * cleanup removes expired files. Return 0 to remove the limit.
+		 *
+		 * @since 0.1.0
+		 *
+		 * @param int $max_files The maximum number of cache files.
+		 */
+		$value = (int) apply_filters( 'woocommerce_graphql_opcache_max_files', self::DEFAULT_MAX_OPCACHE_FILES );
+		return max( 0, $value );
+	}
+
+	/**
+	 * The maximum total size (in bytes) of the AST files kept in the OPcache
+	 * cache directory. Zero means no limit.
+	 */
+	public static function get_max_opcache_bytes(): int {
+		/**
+		 * Filters the maximum total size (in bytes) of the parsed-query files
+		 * kept in the OPcache cache directory.
+		 *
+		 * A query whose file would push the directory past this size is
+		 * parsed on every request (and not persisted) until the TTL cleanup
+		 * removes expired files. Return 0 to remove the limit.
+		 *
+		 * @since 0.1.0
+		 *
+		 * @param int $max_bytes The maximum total size of the cache files, in bytes.
+		 */
+		$value = (int) apply_filters( 'woocommerce_graphql_opcache_max_bytes', self::DEFAULT_MAX_OPCACHE_BYTES );
+		return max( 0, $value );
 	}
 
 	/**
@@ -210,6 +318,13 @@ class QueryCache {
 	 *
 	 * Returns an error array if the query has a syntax error.
 	 *
+	 * Queries longer than {@see self::get_max_cacheable_query_bytes()} are
+	 * parsed and returned but not persisted anywhere, which bounds the size
+	 * of a cache entry a caller can force before authorization. An APQ
+	 * registration of such a query still succeeds; the hash just isn't
+	 * retained, so a later hash-only request gets PERSISTED_QUERY_NOT_FOUND
+	 * and the client falls back to sending the full query.
+	 *
 	 * @param string $query   The GraphQL query string.
 	 * @param string $hash    The SHA-256 hash to cache under.
 	 * @param bool   $for_apq Whether the request is an APQ registration.
@@ -218,6 +333,10 @@ class QueryCache {
 	private function parse_and_cache( string $query, string $hash, bool $for_apq = false ) {
 		$document = $this->parse( $query );
 		if ( ! $document instanceof DocumentNode ) {
+			return $document;
+		}
+
+		if ( ! self::is_query_cacheable( $query ) ) {
 			return $document;
 		}
 
@@ -231,6 +350,16 @@ class QueryCache {
 		}
 
 		return $document;
+	}
+
+	/**
+	 * Whether a query string is short enough for its parsed AST to be persisted.
+	 *
+	 * @param string $query The GraphQL query string.
+	 */
+	private static function is_query_cacheable( string $query ): bool {
+		$max_bytes = self::get_max_cacheable_query_bytes();
+		return 0 === $max_bytes || strlen( $query ) <= $max_bytes;
 	}
 
 	/**
@@ -389,15 +518,25 @@ class QueryCache {
 	 * DocumentNode, and a failed cache write only forfeits the optimisation
 	 * for one request.
 	 *
+	 * A new file is only added while the directory stays within
+	 * {@see self::get_max_opcache_files()} files and
+	 * {@see self::get_max_opcache_bytes()} in total; refreshing an existing
+	 * entry (e.g. one whose contents failed to load) is always allowed since
+	 * it doesn't grow the directory. The directory is measured without
+	 * locking, so concurrent misses can overshoot the limits by a few files.
+	 *
 	 * @param string       $hash     The SHA-256 hash to cache under.
 	 * @param DocumentNode $document The parsed AST.
 	 */
 	private function write_to_opcache( string $hash, DocumentNode $document ): void {
-		$dir  = self::get_opcache_cache_dir();
-		$path = $dir . '/' . $hash . '.php';
-		$tmp  = $path . '.' . bin2hex( random_bytes( 8 ) ) . '.tmp';
-
+		$dir      = self::get_opcache_cache_dir();
+		$path     = $dir . '/' . $hash . '.php';
+		$tmp      = $path . '.' . bin2hex( random_bytes( 8 ) ) . '.tmp';
 		$contents = "<?php\nreturn " . var_export( $document->toArray(), true ) . ";\n"; // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export
+
+		if ( ! is_file( $path ) && ! self::opcache_dir_has_room_for( $dir, strlen( $contents ) ) ) {
+			return;
+		}
 
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 		if ( false === file_put_contents( $tmp, $contents, LOCK_EX ) ) {
@@ -421,6 +560,43 @@ class QueryCache {
 		}
 
 		OpcacheFileExpiry::ensure_scheduled();
+	}
+
+	/**
+	 * Whether a new AST file of the given size can be added to the OPcache
+	 * cache directory without exceeding the maximum number of files or the
+	 * maximum total size.
+	 *
+	 * @param string $dir            The OPcache cache directory.
+	 * @param int    $incoming_bytes Size of the file about to be written.
+	 */
+	private static function opcache_dir_has_room_for( string $dir, int $incoming_bytes ): bool {
+		$max_files = self::get_max_opcache_files();
+		$max_bytes = self::get_max_opcache_bytes();
+		if ( 0 === $max_files && 0 === $max_bytes ) {
+			return true;
+		}
+
+		$files = glob( $dir . '/*.php' );
+		if ( ! is_array( $files ) ) {
+			return true;
+		}
+
+		if ( 0 !== $max_files && count( $files ) >= $max_files ) {
+			return false;
+		}
+
+		if ( 0 !== $max_bytes ) {
+			$total_bytes = $incoming_bytes;
+			foreach ( $files as $file ) {
+				$total_bytes += (int) filesize( $file );
+				if ( $total_bytes > $max_bytes ) {
+					return false;
+				}
+			}
+		}
+
+		return true;
 	}
 
 	/**

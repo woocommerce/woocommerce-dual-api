@@ -53,6 +53,9 @@ class QueryCacheTest extends WC_Unit_Test_Case {
 		delete_option( Main::OPTION_OBJECT_CACHE_ENABLED );
 		delete_option( Main::OPTION_OPCACHE_ENABLED );
 		remove_all_filters( 'woocommerce_graphql_opcache_cache_dir' );
+		remove_all_filters( 'woocommerce_graphql_max_cacheable_query_bytes' );
+		remove_all_filters( 'woocommerce_graphql_opcache_max_files' );
+		remove_all_filters( 'woocommerce_graphql_opcache_max_bytes' );
 		foreach ( $this->temp_dirs_to_clean as $dir ) {
 			$this->rrmdir( $dir );
 		}
@@ -402,6 +405,230 @@ class QueryCacheTest extends WC_Unit_Test_Case {
 			as_has_scheduled_action( OpcacheFileExpiry::ACTION_HOOK ),
 			'A successful OPcache write must schedule the cleanup sweep.'
 		);
+	}
+
+	/**
+	 * @testdox the persistence bounds default to the class constants.
+	 */
+	public function test_persistence_bounds_default_to_the_constants(): void {
+		$this->assertSame( QueryCache::DEFAULT_MAX_CACHEABLE_QUERY_BYTES, QueryCache::get_max_cacheable_query_bytes() );
+		$this->assertSame( QueryCache::DEFAULT_MAX_OPCACHE_FILES, QueryCache::get_max_opcache_files() );
+		$this->assertSame( QueryCache::DEFAULT_MAX_OPCACHE_BYTES, QueryCache::get_max_opcache_bytes() );
+	}
+
+	/**
+	 * @testdox a negative value returned by a persistence-bound filter is treated as zero.
+	 */
+	public function test_negative_persistence_bounds_are_clamped_to_zero(): void {
+		add_filter( 'woocommerce_graphql_max_cacheable_query_bytes', static fn() => -1 );
+		add_filter( 'woocommerce_graphql_opcache_max_files', static fn() => -1 );
+		add_filter( 'woocommerce_graphql_opcache_max_bytes', static fn() => -1 );
+
+		$this->assertSame( 0, QueryCache::get_max_cacheable_query_bytes() );
+		$this->assertSame( 0, QueryCache::get_max_opcache_files() );
+		$this->assertSame( 0, QueryCache::get_max_opcache_bytes() );
+	}
+
+	/**
+	 * @testdox a query longer than the cacheable size is parsed and served but not written to the object cache.
+	 */
+	public function test_oversized_query_is_served_but_not_written_to_object_cache(): void {
+		update_option( Main::OPTION_OBJECT_CACHE_ENABLED, 'yes' );
+		$query = $this->set_max_cacheable_query_bytes_just_below( '{ widget { id } }' );
+
+		$result = $this->sut->resolve( $query, array() );
+
+		$this->assertInstanceOf( DocumentNode::class, $result );
+		$this->assertFalse(
+			wp_cache_get( $this->cache_key_for( $query ), 'wc-graphql' ),
+			'An oversized query must be parsed on every request instead of persisted.'
+		);
+	}
+
+	/**
+	 * @testdox a query exactly at the cacheable size is written to the object cache.
+	 */
+	public function test_query_at_the_cacheable_size_is_written_to_object_cache(): void {
+		update_option( Main::OPTION_OBJECT_CACHE_ENABLED, 'yes' );
+		$query = '{ widget { id } }';
+		add_filter( 'woocommerce_graphql_max_cacheable_query_bytes', static fn() => strlen( $query ) );
+
+		$this->sut->resolve( $query, array() );
+
+		$this->assertNotFalse( wp_cache_get( $this->cache_key_for( $query ), 'wc-graphql' ) );
+	}
+
+	/**
+	 * @testdox a zero cacheable size removes the limit.
+	 */
+	public function test_zero_max_cacheable_query_bytes_removes_the_limit(): void {
+		update_option( Main::OPTION_OBJECT_CACHE_ENABLED, 'yes' );
+		add_filter( 'woocommerce_graphql_max_cacheable_query_bytes', '__return_zero' );
+		$query = '{ widget { id } }';
+
+		$this->sut->resolve( $query, array() );
+
+		$this->assertSame( 0, QueryCache::get_max_cacheable_query_bytes() );
+		$this->assertNotFalse( wp_cache_get( $this->cache_key_for( $query ), 'wc-graphql' ) );
+	}
+
+	/**
+	 * @testdox an oversized APQ registration succeeds but the hash is not retained.
+	 */
+	public function test_oversized_apq_registration_is_not_retained(): void {
+		$query      = $this->set_max_cacheable_query_bytes_just_below( '{ widget { id } }' );
+		$extensions = array(
+			'persistedQuery' => array(
+				'version'    => 1,
+				'sha256Hash' => hash( 'sha256', $query ),
+			),
+		);
+
+		$register = $this->sut->resolve( $query, $extensions );
+		$lookup   = $this->sut->resolve( null, $extensions );
+
+		$this->assertInstanceOf( DocumentNode::class, $register, 'The registration request itself must still be served.' );
+		$this->assertIsArray( $lookup );
+		$this->assertSame( 'PERSISTED_QUERY_NOT_FOUND', $lookup['errors'][0]['extensions']['code'] ?? null );
+	}
+
+	/**
+	 * @testdox a query longer than the cacheable size is parsed and served but not written to the OPcache dir.
+	 */
+	public function test_oversized_query_is_served_but_not_written_to_opcache_file(): void {
+		$dir = $this->use_temp_opcache_dir();
+		update_option( Main::OPTION_OPCACHE_ENABLED, 'yes' );
+		$query = $this->set_max_cacheable_query_bytes_just_below( '{ widget { id } }' );
+
+		$result = $this->sut->resolve( $query, array() );
+
+		$this->assertInstanceOf( DocumentNode::class, $result );
+		$this->assertFileDoesNotExist( $dir . '/' . hash( 'sha256', $query ) . '.php' );
+	}
+
+	/**
+	 * @testdox once the OPcache dir holds the maximum number of files, new queries are served but not written.
+	 */
+	public function test_new_opcache_file_is_not_written_when_the_dir_is_full(): void {
+		$dir = $this->use_temp_opcache_dir();
+		update_option( Main::OPTION_OPCACHE_ENABLED, 'yes' );
+		add_filter( 'woocommerce_graphql_opcache_max_files', static fn() => 2 );
+
+		$this->sut->resolve( '{ first: __typename }', array() );
+		$this->sut->resolve( '{ second: __typename }', array() );
+		$result = $this->sut->resolve( '{ third: __typename }', array() );
+
+		$this->assertInstanceOf( DocumentNode::class, $result );
+		$this->assertFileExists( $dir . '/' . hash( 'sha256', '{ first: __typename }' ) . '.php' );
+		$this->assertFileExists( $dir . '/' . hash( 'sha256', '{ second: __typename }' ) . '.php' );
+		$this->assertFileDoesNotExist( $dir . '/' . hash( 'sha256', '{ third: __typename }' ) . '.php' );
+		$this->assertCount( 2, glob( $dir . '/*.php' ) );
+	}
+
+	/**
+	 * @testdox a full OPcache dir still allows refreshing an existing file whose contents can't be loaded.
+	 */
+	public function test_existing_opcache_file_is_refreshed_when_the_dir_is_full(): void {
+		$dir = $this->use_temp_opcache_dir();
+		update_option( Main::OPTION_OPCACHE_ENABLED, 'yes' );
+		add_filter( 'woocommerce_graphql_opcache_max_files', static fn() => 2 );
+
+		$query = '{ first: __typename }';
+		$path  = $dir . '/' . hash( 'sha256', $query ) . '.php';
+		$this->sut->resolve( $query, array() );
+		$this->sut->resolve( '{ second: __typename }', array() );
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		file_put_contents( $path, "<?php\nreturn 'not an AST';\n" );
+		if ( function_exists( 'opcache_invalidate' ) ) {
+			opcache_invalidate( $path, true );
+		}
+
+		$result = $this->sut->resolve( $query, array() );
+
+		$this->assertInstanceOf( DocumentNode::class, $result );
+		$this->assertStringNotContainsString( 'not an AST', file_get_contents( $path ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		$this->assertCount( 2, glob( $dir . '/*.php' ) );
+	}
+
+	/**
+	 * @testdox a new OPcache file that would push the dir past its maximum total size is not written.
+	 */
+	public function test_new_opcache_file_is_not_written_when_the_dir_size_would_exceed_the_limit(): void {
+		$dir = $this->use_temp_opcache_dir();
+		update_option( Main::OPTION_OPCACHE_ENABLED, 'yes' );
+
+		$first = '{ first: __typename }';
+		$this->sut->resolve( $first, array() );
+		$first_size = filesize( $dir . '/' . hash( 'sha256', $first ) . '.php' );
+		// Room for the first file only: a second one of the same size would exceed the limit.
+		add_filter( 'woocommerce_graphql_opcache_max_bytes', static fn() => $first_size + 1 );
+
+		$result = $this->sut->resolve( '{ second: __typename }', array() );
+
+		$this->assertInstanceOf( DocumentNode::class, $result );
+		$this->assertFileDoesNotExist( $dir . '/' . hash( 'sha256', '{ second: __typename }' ) . '.php' );
+		$this->assertCount( 1, glob( $dir . '/*.php' ) );
+	}
+
+	/**
+	 * @testdox a new OPcache file that fits exactly within the maximum total size is written.
+	 */
+	public function test_new_opcache_file_that_fits_the_dir_size_limit_is_written(): void {
+		$dir = $this->use_temp_opcache_dir();
+		update_option( Main::OPTION_OPCACHE_ENABLED, 'yes' );
+
+		$first  = '{ first: __typename }';
+		$second = '{ other: __typename }';
+		$this->sut->resolve( $first, array() );
+		$first_size = filesize( $dir . '/' . hash( 'sha256', $first ) . '.php' );
+		// Both queries have the same length, so their files are the same size too.
+		add_filter( 'woocommerce_graphql_opcache_max_bytes', static fn() => 2 * $first_size );
+
+		$this->sut->resolve( $second, array() );
+
+		$this->assertFileExists( $dir . '/' . hash( 'sha256', $second ) . '.php' );
+	}
+
+	/**
+	 * @testdox a zero maximum total OPcache size removes the limit.
+	 */
+	public function test_zero_max_opcache_bytes_removes_the_limit(): void {
+		$dir = $this->use_temp_opcache_dir();
+		update_option( Main::OPTION_OPCACHE_ENABLED, 'yes' );
+		add_filter( 'woocommerce_graphql_opcache_max_bytes', '__return_zero' );
+
+		$this->sut->resolve( '{ first: __typename }', array() );
+		$this->sut->resolve( '{ second: __typename }', array() );
+
+		$this->assertSame( 0, QueryCache::get_max_opcache_bytes() );
+		$this->assertCount( 2, glob( $dir . '/*.php' ) );
+	}
+
+	/**
+	 * @testdox a zero maximum number of OPcache files removes the limit.
+	 */
+	public function test_zero_max_opcache_files_removes_the_limit(): void {
+		$dir = $this->use_temp_opcache_dir();
+		update_option( Main::OPTION_OPCACHE_ENABLED, 'yes' );
+		add_filter( 'woocommerce_graphql_opcache_max_files', '__return_zero' );
+
+		$this->sut->resolve( '{ first: __typename }', array() );
+		$this->sut->resolve( '{ second: __typename }', array() );
+		$this->sut->resolve( '{ third: __typename }', array() );
+
+		$this->assertSame( 0, QueryCache::get_max_opcache_files() );
+		$this->assertCount( 3, glob( $dir . '/*.php' ) );
+	}
+
+	/**
+	 * Cap the cacheable query size one byte below the length of the given
+	 * query, so that the query counts as oversized, and return the query.
+	 *
+	 * @param string $query The GraphQL query string.
+	 */
+	private function set_max_cacheable_query_bytes_just_below( string $query ): string {
+		add_filter( 'woocommerce_graphql_max_cacheable_query_bytes', static fn() => strlen( $query ) - 1 );
+		return $query;
 	}
 
 	/**

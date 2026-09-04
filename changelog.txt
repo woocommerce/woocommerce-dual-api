@@ -6,3 +6,4 @@
 * The "Endpoint URL" setting is gone with WooCommerce core's proof-of-concept endpoint: every endpoint's route is chosen by the plugin that registers it.
 * The builder emits the consuming plugin's text domain into the generated code instead of a hardcoded "woocommerce", ships with the plugin so code APIs can be built against an installed copy, and skips formatting when phpcbf isn't available instead of failing silently.
 * Fix unnecessary repeated processing of fragments in the GraphQL side of the dual API.
+* Bound the parsed-query cache: queries longer than 16 KB are no longer persisted and the OPcache directory stops growing at 1000 files or 32 MB (all filterable), so unauthenticated callers can't exhaust disk or OPcache memory by sending unique queries.

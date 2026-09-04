@@ -42,11 +42,24 @@ Notes:
 - OPcache writes are atomic (temp file + `rename()`), drop a deny-all `.htaccess`, and pre-warm the bytecode. Expired files are cleaned up via a scheduled `woocommerce_graphql_opcache_cleanup` action.
 - APQ always uses the object cache for hash-only lookups, regardless of the standard-query toggles, preserving persisted-query semantics.
 
+### Persistence bounds
+
+Caching happens right after parsing, before the query is validated against the schema and before any resolver authorizes the caller. Every syntactically valid query that reaches an endpoint (including anonymous requests, schema-invalid queries and queries the caller isn't allowed to run) would therefore persist a cache entry, so three bounds keep the footprint finite:
+
+- **Maximum cacheable query size** (`QueryCache::DEFAULT_MAX_CACHEABLE_QUERY_BYTES`, 16 KB): a longer query is parsed and served on every request but never persisted, on any backend. An APQ registration of such a query succeeds for that request, but the hash isn't retained: the next hash-only request gets `PERSISTED_QUERY_NOT_FOUND` and the client falls back to sending the full query.
+- **Maximum number of OPcache files** (`QueryCache::DEFAULT_MAX_OPCACHE_FILES`, 1000): once the cache directory holds this many AST files, queries that aren't cached yet are parsed on every request and not written, until the TTL cleanup frees room.
+- **Maximum total size of the OPcache files** (`QueryCache::DEFAULT_MAX_OPCACHE_BYTES`, 32 MB): a query whose file would push the directory past this size isn't written either. This is what actually bounds disk usage and OPcache shared memory, since the exported AST of a query is 30 to 230 times the query's size (a 16 KB query made of two-character fields becomes a 2.7 MB file, and OPcache keeps a compiled copy about 1.4 times that size).
+
+Refreshing a file that already exists is always allowed. The directory is measured without a lock, so concurrent cache misses can overshoot the limits by a few files. All three are limits on persistence, not on what the endpoint accepts: a query beyond them still runs. They're filterable (see below); setting one to `0` removes it. The object cache has no count or size bound of its own beyond the cacheable query size, its eviction policy and the TTL.
+
 ## Relevant filters
 
 | Filter | Signature | Purpose |
 | --- | --- | --- |
 | `woocommerce_graphql_opcache_cache_dir` | `( string $dir )` | Override the OPcache file directory (default `{uploads}/wc-graphql-cache/v<n>`). Empty strings and stream wrappers are rejected. |
+| `woocommerce_graphql_max_cacheable_query_bytes` | `( int $max_bytes )` | Maximum length of a query string whose parsed AST is persisted, on any backend (default 16384). `0` removes the limit. See [Persistence bounds](#persistence-bounds). |
+| `woocommerce_graphql_opcache_max_files` | `( int $max_files )` | Maximum number of AST files kept in the OPcache directory (default 1000). `0` removes the limit. |
+| `woocommerce_graphql_opcache_max_bytes` | `( int $max_bytes )` | Maximum total size of the AST files kept in the OPcache directory (default 32 MB). `0` removes the limit. |
 | `woocommerce_graphql_can_introspect` | `( bool, ?object $principal, \WP_REST_Request )` | Gate native introspection. See [Authentication and authorization](./authentication-and-authorization.md). |
 | `woocommerce_graphql_can_use_debug_mode` | `( bool, ?object $principal, \WP_REST_Request )` | Gate debug mode. |
 | `woocommerce_graphql_can_query_metadata` | `( bool, ?object $principal, \WP_REST_Request )` | Gate `_apiMetadata`. See [Metadata](./metadata.md). |
