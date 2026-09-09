@@ -133,6 +133,8 @@ All three gates **fail closed**:
 - A throw from the method or filter is caught and treated as a deny.
 - Filters must return strictly `true` to grant; loose values like `1` or `'yes'` deny.
 
+When introspection is denied, validation errors also lose the `Did you mean "..."?` suggestions the engine otherwise appends when a field, type, argument, input field or enum value name is one typo away from an existing one; with introspection blocked, those suggestions would let a caller enumerate the schema by trial and error. Errors raised by resolvers keep their wording.
+
 The filters receive `( bool $decision, ?object $principal, \WP_REST_Request $request )`. They are **not** invoked when principal resolution itself failed. They are also **site-wide**: a callback affects every dual-API endpoint on the site, so branch on the `$request` route if it should apply to only one; see [Scope: what applies where](./caching-and-settings.md#scope-what-applies-where). The default `Principal` declares `can_introspect()` (gated on `manage_woocommerce`), which also governs `_apiMetadata` since it has no `can_query_metadata()` - so admin access to both works out of the box, and other principals are denied unless they opt in. (The reference plugin's `EventsPrincipal` grants `can_introspect()` to its `manager` role only.)
 
 Example override:

@@ -328,7 +328,8 @@ abstract class GraphQLControllerBase {
 		}
 
 		// 5. Load schema.
-		$schema = $this->get_engine_schema();
+		$schema                = $this->get_engine_schema();
+		$introspection_allowed = $this->is_introspection_allowed( $principal, $request );
 
 		// 6. Enforce the depth and complexity limits on their own first. Both
 		// rules do work proportional to the size of the document, while some
@@ -361,7 +362,7 @@ abstract class GraphQLControllerBase {
 			// on repeated fields; see OverlappingFieldsRule.
 			$validation_rules[ OverlappingFieldsCanBeMerged::class ] = new OverlappingFieldsRule();
 			$validation_rules                                        = array_values( $validation_rules );
-			if ( ! $this->is_introspection_allowed( $principal, $request ) ) {
+			if ( ! $introspection_allowed ) {
 				$validation_rules[] = new DisableIntrospection( DisableIntrospection::ENABLED );
 			}
 
@@ -393,14 +394,25 @@ abstract class GraphQLControllerBase {
 		// chain so wrapped errors (e.g. a \ValueError caught by a resolver and
 		// re-thrown as INTERNAL_ERROR) stay visible to the developer instead
 		// of being masked behind the generic "Internal server error" message.
+		//
+		// Validation and variable-coercion errors end with a "Did you mean
+		// ...?" suggestion computed from the schema (near-miss field, type,
+		// argument, input-field and enum-value names). For a principal that
+		// may not introspect the formatter drops them. Errors raised while
+		// resolving fields carry a path and are left untouched: their wording
+		// belongs to the plugin.
 		$debug_mode = $this->is_debug_mode( $principal, $request );
 		$result->setErrorFormatter(
-			function ( \Throwable $error ) use ( $debug_mode ): array {
+			function ( \Throwable $error ) use ( $debug_mode, $introspection_allowed ): array {
 				$formatted = \Automattic\WooCommerce\Vendor\GraphQL\Error\FormattedError::createFromException( $error );
 
 				if ( ! isset( $formatted['extensions']['code'] ) ) {
 					$client_safe                     = $error instanceof \Automattic\WooCommerce\Vendor\GraphQL\Error\ClientAware && $error->isClientSafe();
 					$formatted['extensions']['code'] = $client_safe ? 'BAD_USER_INPUT' : 'INTERNAL_ERROR';
+				}
+
+				if ( ! $introspection_allowed && $error instanceof Error && empty( $error->getPath() ) && is_string( $formatted['message'] ?? null ) ) {
+					$formatted['message'] = self::strip_schema_suggestions( $formatted['message'] );
 				}
 
 				// SerializationError (thrown during schema-type coercion, e.g. when
@@ -482,6 +494,22 @@ abstract class GraphQLControllerBase {
 		} catch ( Error $e ) {
 			return array( $e );
 		}
+	}
+
+	/**
+	 * Remove the trailing "Did you mean ...?" sentence the engine appends to
+	 * validation and coercion errors when it finds schema elements whose
+	 * names are close to the one the caller used.
+	 *
+	 * Suggested names are GraphQL names, which can't contain a question
+	 * mark, so the sentence always runs from " Did you mean " to the closing
+	 * question mark at the end of the message.
+	 *
+	 * @param string $message The error message.
+	 * @return string The message without the suggestion.
+	 */
+	private static function strip_schema_suggestions( string $message ): string {
+		return preg_replace( '/ Did you mean [^?]*\?$/', '', $message ) ?? $message;
 	}
 
 	/**

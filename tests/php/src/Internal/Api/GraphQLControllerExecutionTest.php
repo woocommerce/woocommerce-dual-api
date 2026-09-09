@@ -159,6 +159,77 @@ class GraphQLControllerExecutionTest extends WC_REST_Unit_Test_Case {
 	}
 
 	/**
+	 * @testdox validation errors carry no "Did you mean" suggestions for a caller denied introspection.
+	 */
+	public function test_schema_suggestions_are_stripped_when_introspection_is_denied(): void {
+		wp_set_current_user( 0 );
+
+		$response = $this->sut->handle_request( $this->post_request( array( 'query' => '{ greetin { result } }' ) ) );
+
+		$data = $response->get_data();
+		$this->assertSame( 400, $response->get_status() );
+		$this->assertSame( 'Cannot query field "greetin" on type "Query".', $data['errors'][0]['message'] );
+	}
+
+	/**
+	 * @testdox validation errors keep their "Did you mean" suggestions for a caller allowed to introspect.
+	 */
+	public function test_schema_suggestions_are_kept_when_introspection_is_allowed(): void {
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $admin );
+
+		$response = $this->sut->handle_request( $this->post_request( array( 'query' => '{ greetin { result } }' ) ) );
+
+		$data = $response->get_data();
+		$this->assertSame( 400, $response->get_status() );
+		$this->assertSame( 'Cannot query field "greetin" on type "Query". Did you mean "greeting"?', $data['errors'][0]['message'] );
+	}
+
+	/**
+	 * @testdox suggestions are stripped from every kind of near-miss: type, field, argument and enum value names, in literals and in variables.
+	 *
+	 * @dataProvider near_miss_documents
+	 *
+	 * @param string $query            A document naming a schema element that is one typo away from an existing one.
+	 * @param array  $variables        Variables to send along.
+	 * @param string $expected_message The message the caller should see.
+	 */
+	public function test_all_kinds_of_schema_suggestions_are_stripped( string $query, array $variables, string $expected_message ): void {
+		wp_set_current_user( 0 );
+
+		$response = $this->sut->handle_request(
+			$this->post_request(
+				array(
+					'query'     => $query,
+					'variables' => $variables,
+				)
+			)
+		);
+
+		$messages = array_column( $response->get_data()['errors'] ?? array(), 'message' );
+		$this->assertContains( $expected_message, $messages );
+		foreach ( $messages as $message ) {
+			$this->assertStringNotContainsString( 'Did you mean', $message );
+		}
+	}
+
+	/**
+	 * Documents whose validation or variable-coercion errors carry a schema
+	 * suggestion for callers allowed to introspect.
+	 *
+	 * @return array<string, array{string, array, string}>
+	 */
+	public function near_miss_documents(): array {
+		return array(
+			'type name'              => array( '{ ...F } fragment F on Widge { id }', array(), 'Unknown type "Widge".' ),
+			'field name'             => array( '{ widgets(first: 1) { totalCount } }', array(), 'Cannot query field "totalCount" on type "WidgetConnection".' ),
+			'inline fragment on'     => array( '{ namedThing(kind: "x") { slug } }', array(), 'Cannot query field "slug" on type "Named".' ),
+			'argument name'          => array( '{ widget(ids: 1) { id } }', array(), 'Unknown argument "ids" on field "widget" of type "Query".' ),
+			'enum value in variable' => array( 'query ($c: Color) { widgets(color: $c) { total_count } }', array( 'c' => 'RE' ), 'Variable "$c" got invalid value "RE"; Value "RE" does not exist in "Color" enum.' ),
+		);
+	}
+
+	/**
 	 * @testdox handle_request returns 200 + data for a successful query.
 	 */
 	public function test_handle_request_returns_200_for_successful_query(): void {
