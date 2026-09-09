@@ -22,6 +22,15 @@ The default `Principal` carries the `WP_User` and exposes:
 
 Plugins authenticating against something else (app token, signed webhook, ...) ship their own `PrincipalResolver` and principal class. The resolver's **return type declares the plugin's principal type**, which ApiBuilder uses to type-check `authorize()`/`$_principal` signatures at build time. A resolver may take an optional `\WP_REST_Request $request` parameter, or none. To reject bad credentials, throw `UnauthorizedException` or `InvalidTokenException` from the resolver. See [Creating a dual API in a plugin](./creating-a-dual-api-in-a-plugin.md) and [Infrastructure classes](./reference/infrastructure-classes.md).
 
+## Refusing requests up front
+
+Endpoints are registered without a REST-level permission check, because authorization is decided per operation and operations can be public. That means every request, anonymous ones included, is parsed, cached and validated before any `authorize()` runs. Sites whose APIs have no public operations, and sites that want to apply their own admission rules, can refuse requests right after the principal has been resolved and before anything else happens:
+
+- The **Allow anonymous requests** setting (**WooCommerce → Settings → Advanced → GraphQL**, on by default). When off, a principal whose `is_authenticated()` returns `false` gets a `401 UNAUTHORIZED` response with the message `Authentication required.`, and the query is never parsed. This also makes `#[PublicAccess]` operations unreachable, so leave it on for storefront-style APIs. A principal class that doesn't declare `is_authenticated()` can't be told apart from an authenticated one and is admitted, the same convention the authorization errors follow.
+- The `woocommerce_graphql_request_allowed` filter, `( bool $allowed, object $principal, \WP_REST_Request $request )`, applied to that decision. Use it for rate limiting, IP rules, per-route policies, or to admit specific anonymous requests while the setting is off. It is site-wide, so branch on the request's route when it should apply to one endpoint only.
+
+The gate fails closed like the other ones: the filter must return strictly `true` to admit the request, and a throw from the principal's `is_authenticated()` or from a filter callback refuses it. The filter is not invoked when principal resolution itself failed; that case is answered with the resolver's own error.
+
 ## Authorization attributes
 
 Authorization is declarative. Two attributes are built in:

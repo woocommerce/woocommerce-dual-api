@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Automattic\WooCommerce\Tests\Internal\Api;
 
 use Automattic\WooCommerce\Api\Infrastructure\GraphQLControllerBase;
+use Automattic\WooCommerce\Api\Infrastructure\Main;
 use Automattic\WooCommerce\Internal\Api\QueryCache;
 use Automattic\WooCommerce\Tests\Internal\Api\Fixtures\CountingNodeList;
 use Automattic\WooCommerce\Tests\Internal\Api\Fixtures\DummyApi\Infrastructure\ClassResolver as DummyContainer;
@@ -53,7 +54,147 @@ class GraphQLControllerExecutionTest extends WC_REST_Unit_Test_Case {
 		DummyContainer::reset();
 		wp_set_current_user( 0 );
 		wp_cache_flush();
+		delete_option( Main::OPTION_ANONYMOUS_REQUESTS_ALLOWED );
+		remove_all_filters( 'woocommerce_graphql_request_allowed' );
 		parent::tearDown();
+	}
+
+	/**
+	 * @testdox an anonymous request is refused before the query is parsed when anonymous requests are off.
+	 */
+	public function test_anonymous_request_is_refused_before_parsing_when_the_setting_is_off(): void {
+		update_option( Main::OPTION_ANONYMOUS_REQUESTS_ALLOWED, 'no' );
+		wp_set_current_user( 0 );
+
+		// A syntax error would be reported as GRAPHQL_PARSE_ERROR if the query were parsed.
+		$response = $this->sut->handle_request( $this->post_request( array( 'query' => '{ not even valid' ) ) );
+
+		$data = $response->get_data();
+		$this->assertSame( 401, $response->get_status() );
+		$this->assertCount( 1, $data['errors'] );
+		$this->assertSame( 'UNAUTHORIZED', $data['errors'][0]['extensions']['code'] );
+		$this->assertSame( 'Authentication required.', $data['errors'][0]['message'] );
+		$this->assertArrayNotHasKey( 'data', $data );
+	}
+
+	/**
+	 * @testdox an authenticated request proceeds when anonymous requests are off.
+	 */
+	public function test_authenticated_request_proceeds_when_anonymous_requests_are_off(): void {
+		update_option( Main::OPTION_ANONYMOUS_REQUESTS_ALLOWED, 'no' );
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'subscriber' ) ) );
+
+		$response = $this->sut->handle_request( $this->post_request( array( 'query' => '{ greeting { result } }' ) ) );
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertArrayNotHasKey( 'errors', $response->get_data() );
+	}
+
+	/**
+	 * @testdox the woocommerce_graphql_request_allowed filter can refuse an authenticated caller.
+	 */
+	public function test_request_allowed_filter_can_refuse_an_authenticated_caller(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$seen = null;
+		add_filter(
+			'woocommerce_graphql_request_allowed',
+			function ( bool $allowed, object $principal, \WP_REST_Request $request ) use ( &$seen ): bool {
+				$seen = array( $allowed, $principal, $request->get_route() );
+				return false;
+			},
+			10,
+			3
+		);
+
+		$response = $this->sut->handle_request( $this->post_request( array( 'query' => '{ greeting { result } }' ) ) );
+
+		$this->assertSame( 401, $response->get_status() );
+		$this->assertSame( 'UNAUTHORIZED', $response->get_data()['errors'][0]['extensions']['code'] );
+		$this->assertTrue( $seen[0], 'The filter receives the setting-derived decision.' );
+		$this->assertTrue( $seen[1]->is_authenticated() );
+		$this->assertSame( '/wc/graphql', $seen[2] );
+	}
+
+	/**
+	 * @testdox the woocommerce_graphql_request_allowed filter can admit an anonymous caller when the setting is off.
+	 */
+	public function test_request_allowed_filter_can_admit_an_anonymous_caller(): void {
+		update_option( Main::OPTION_ANONYMOUS_REQUESTS_ALLOWED, 'no' );
+		wp_set_current_user( 0 );
+		add_filter( 'woocommerce_graphql_request_allowed', '__return_true' );
+
+		$response = $this->sut->handle_request( $this->post_request( array( 'query' => '{ greeting { result } }' ) ) );
+
+		$this->assertSame( 200, $response->get_status() );
+	}
+
+	/**
+	 * @testdox the woocommerce_graphql_request_allowed filter must return strictly true to admit a request.
+	 */
+	public function test_request_allowed_filter_must_return_strictly_true(): void {
+		wp_set_current_user( 0 );
+		add_filter( 'woocommerce_graphql_request_allowed', static fn() => 1 );
+
+		$response = $this->sut->handle_request( $this->post_request( array( 'query' => '{ greeting { result } }' ) ) );
+
+		$this->assertSame( 401, $response->get_status() );
+	}
+
+	/**
+	 * @testdox a throw from a woocommerce_graphql_request_allowed callback refuses the request (fail-closed).
+	 */
+	public function test_request_allowed_filter_throw_refuses_the_request(): void {
+		wp_set_current_user( 0 );
+		add_filter(
+			'woocommerce_graphql_request_allowed',
+			static function () {
+				throw new \RuntimeException( 'broken-request-gate' );
+			}
+		);
+
+		$response = $this->sut->handle_request( $this->post_request( array( 'query' => '{ greeting { result } }' ) ) );
+
+		$this->assertSame( 401, $response->get_status() );
+		$this->assertStringNotContainsString( 'broken-request-gate', (string) wp_json_encode( $response->get_data() ) );
+	}
+
+	/**
+	 * @testdox a principal that doesn't declare is_authenticated() is admitted when anonymous requests are off.
+	 */
+	public function test_principal_without_is_authenticated_is_admitted_when_the_setting_is_off(): void {
+		update_option( Main::OPTION_ANONYMOUS_REQUESTS_ALLOWED, 'no' );
+
+		$this->assertTrue( $this->invoke_is_request_allowed( new \stdClass() ) );
+	}
+
+	/**
+	 * @testdox a throw from the principal's is_authenticated() method refuses the request (fail-closed).
+	 */
+	public function test_principal_method_throw_refuses_the_request(): void {
+		$throwing_principal = new class() {
+			/**
+			 * Always throw to simulate a buggy plugin principal.
+			 *
+			 * @throws \RuntimeException Always.
+			 */
+			public function is_authenticated(): bool {
+				throw new \RuntimeException( 'broken-principal-method' );
+			}
+		};
+
+		$this->assertFalse( $this->invoke_is_request_allowed( $throwing_principal ) );
+	}
+
+	/**
+	 * Call the private request gate directly with an arbitrary principal.
+	 *
+	 * @param object $principal The principal to evaluate.
+	 */
+	private function invoke_is_request_allowed( object $principal ): bool {
+		$method = ( new \ReflectionClass( GraphQLControllerBase::class ) )->getMethod( 'is_request_allowed' );
+		$method->setAccessible( true );
+
+		return $method->invoke( $this->sut, $principal, new \WP_REST_Request( 'POST', '/wc/graphql' ) );
 	}
 
 	/**

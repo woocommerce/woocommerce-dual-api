@@ -21,7 +21,27 @@ class MainTest extends WC_Unit_Test_Case {
 	 */
 	public function tearDown(): void {
 		delete_option( Main::OPTION_GET_ENDPOINT_ENABLED );
+		delete_option( Main::OPTION_ANONYMOUS_REQUESTS_ALLOWED );
 		parent::tearDown();
+	}
+
+	/**
+	 * @testdox are_anonymous_requests_allowed defaults to true when the option is absent.
+	 */
+	public function test_are_anonymous_requests_allowed_defaults_to_true(): void {
+		delete_option( Main::OPTION_ANONYMOUS_REQUESTS_ALLOWED );
+		$this->assertTrue( Main::are_anonymous_requests_allowed() );
+	}
+
+	/**
+	 * @testdox are_anonymous_requests_allowed honours the stored option value.
+	 */
+	public function test_are_anonymous_requests_allowed_reads_the_option(): void {
+		update_option( Main::OPTION_ANONYMOUS_REQUESTS_ALLOWED, 'no' );
+		$this->assertFalse( Main::are_anonymous_requests_allowed() );
+
+		update_option( Main::OPTION_ANONYMOUS_REQUESTS_ALLOWED, 'yes' );
+		$this->assertTrue( Main::are_anonymous_requests_allowed() );
 	}
 
 	/**

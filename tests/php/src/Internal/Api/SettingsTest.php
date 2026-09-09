@@ -64,6 +64,18 @@ class SettingsTest extends WC_Unit_Test_Case {
 	}
 
 	/**
+	 * @testdox add_settings defines the anonymous requests checkbox with a 'yes' default.
+	 */
+	public function test_add_settings_defines_anonymous_requests_checkbox(): void {
+		$fields = $this->sut->add_settings( array(), Settings::SECTION_ID );
+		$by_id  = array_column( $fields, null, 'id' );
+
+		$this->assertArrayHasKey( Main::OPTION_ANONYMOUS_REQUESTS_ALLOWED, $by_id );
+		$this->assertSame( 'checkbox', $by_id[ Main::OPTION_ANONYMOUS_REQUESTS_ALLOWED ]['type'] );
+		$this->assertSame( 'yes', $by_id[ Main::OPTION_ANONYMOUS_REQUESTS_ALLOWED ]['default'] );
+	}
+
+	/**
 	 * @testdox add_settings defines the GET endpoint checkbox with a 'yes' default.
 	 */
 	public function test_add_settings_defines_get_endpoint_checkbox(): void {

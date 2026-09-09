@@ -26,6 +26,14 @@ class Main {
 	public const OPTION_GET_ENDPOINT_ENABLED = 'woocommerce_graphql_get_endpoint_enabled';
 
 	/**
+	 * Option name for the "Allow anonymous requests" setting.
+	 *
+	 * When disabled, requests whose principal reports itself as
+	 * unauthenticated are answered with 401 before the query is parsed.
+	 */
+	public const OPTION_ANONYMOUS_REQUESTS_ALLOWED = 'woocommerce_graphql_anonymous_requests_allowed';
+
+	/**
 	 * Option name for the "Enable APQ caching" setting.
 	 *
 	 * When disabled, the persistedQuery extension is ignored and requests are
@@ -90,6 +98,20 @@ class Main {
 	 */
 	public static function is_get_endpoint_enabled(): bool {
 		return wc_string_to_bool( get_option( self::OPTION_GET_ENDPOINT_ENABLED, 'yes' ) );
+	}
+
+	/**
+	 * Whether GraphQL endpoints process requests that carry no credentials.
+	 *
+	 * Defaults to true, since operations can be marked as public. When
+	 * disabled, {@see GraphQLControllerBase::handle_request()} answers an
+	 * anonymous request with 401 UNAUTHORIZED before parsing the query, so
+	 * unauthenticated callers can't make the server do any work beyond
+	 * resolving the principal. The decision can be overridden per request
+	 * through the `woocommerce_graphql_request_allowed` filter.
+	 */
+	public static function are_anonymous_requests_allowed(): bool {
+		return wc_string_to_bool( get_option( self::OPTION_ANONYMOUS_REQUESTS_ALLOWED, 'yes' ) );
 	}
 
 	/**

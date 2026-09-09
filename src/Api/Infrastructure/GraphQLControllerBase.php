@@ -6,6 +6,7 @@ namespace Automattic\WooCommerce\Api\Infrastructure;
 
 use Automattic\WooCommerce\Api\ApiException;
 use Automattic\WooCommerce\Api\Infrastructure\Schema\Schema;
+use Automattic\WooCommerce\Api\UnauthorizedException;
 use Automattic\WooCommerce\Api\Utils\SchemaHandle;
 use Automattic\WooCommerce\Internal\Api\OverlappingFieldsRule;
 use Automattic\WooCommerce\Internal\Api\QueryCache;
@@ -167,12 +168,21 @@ abstract class GraphQLControllerBase {
 	 * `$principal` stays null and the resulting error response carries no
 	 * debug info — by design, since the caller failed to authenticate.
 	 *
+	 * The resolved principal then goes through {@see self::is_request_allowed()}
+	 * before the query is parsed, so a request the site refuses to serve
+	 * (anonymous requests when the setting is off, or anything a
+	 * `woocommerce_graphql_request_allowed` callback rejects) is answered
+	 * with 401 UNAUTHORIZED at the cost of the principal lookup alone.
+	 *
 	 * @param \WP_REST_Request $request The REST request.
 	 */
 	public function handle_request( \WP_REST_Request $request ): \WP_REST_Response {
 		$principal = null;
 		try {
 			$principal = $this->resolve_request_principal( $request );
+			if ( ! $this->is_request_allowed( $principal, $request ) ) {
+				return $this->build_exception_response( new UnauthorizedException(), $request, $principal );
+			}
 			return $this->process_request( $request, $principal );
 		} catch ( StatusResolverFailedException $e ) {
 			// Resolver threw on one of the decision points inside
@@ -180,24 +190,38 @@ abstract class GraphQLControllerBase {
 			// the (broken) resolver.
 			return $this->build_resolver_failure_response( $e, $request, $principal );
 		} catch ( \Throwable $e ) {
-			$output = array(
-				'errors' => array(
-					$this->format_exception( $e, $request, $principal ),
-				),
-			);
+			return $this->build_exception_response( $e, $request, $principal );
+		}
+	}
 
-			$default = $this->get_error_status( $output['errors'] );
-			try {
-				$status = $this->pick_status( $default, $output, $request );
-			} catch ( StatusResolverFailedException $e2 ) {
-				// Resolver threw specifically when handed the synthetic
-				// errors shape from this catch block. Fall through to the
-				// fixed 500; do not loop back into the resolver.
-				return $this->build_resolver_failure_response( $e2, $request, $principal );
-			}
+	/**
+	 * Build the response for a request that ended in an exception before
+	 * (or instead of) producing a GraphQL result: a single coded error, with
+	 * the HTTP status derived from its code and passed through the optional
+	 * status resolver.
+	 *
+	 * @param \Throwable       $e         The exception to report.
+	 * @param \WP_REST_Request $request   The originating REST request.
+	 * @param ?object          $principal The resolved principal, or null when resolution failed.
+	 */
+	private function build_exception_response( \Throwable $e, \WP_REST_Request $request, ?object $principal ): \WP_REST_Response {
+		$output = array(
+			'errors' => array(
+				$this->format_exception( $e, $request, $principal ),
+			),
+		);
 
-			return new \WP_REST_Response( $output, $status );
-		}//end try
+		$default = $this->get_error_status( $output['errors'] );
+		try {
+			$status = $this->pick_status( $default, $output, $request );
+		} catch ( StatusResolverFailedException $e2 ) {
+			// Resolver threw specifically when handed the synthetic errors
+			// shape built here. Fall through to the fixed 500; do not loop
+			// back into the resolver.
+			return $this->build_resolver_failure_response( $e2, $request, $principal );
+		}
+
+		return new \WP_REST_Response( $output, $status );
 	}
 
 	/**
@@ -655,6 +679,62 @@ abstract class GraphQLControllerBase {
 		return $this->principal_resolver_takes_request()
 			? $resolver->resolve_principal( $request )
 			: $resolver->resolve_principal();
+	}
+
+	/**
+	 * Check whether the request may be processed at all.
+	 *
+	 * Runs right after principal resolution and before the query is parsed,
+	 * cached or validated, so a refused request costs the server nothing
+	 * beyond the principal lookup. Two inputs decide:
+	 *
+	 *  - The "Allow anonymous requests" setting
+	 *    ({@see Main::are_anonymous_requests_allowed()}). When off, an
+	 *    anonymous principal is refused. Anonymity is read from the
+	 *    principal's `is_authenticated(): bool` method, the same convention
+	 *    the authorization errors use; a principal that doesn't declare it
+	 *    can't be told apart from an authenticated one and is let through.
+	 *  - The {@see 'woocommerce_graphql_request_allowed'} filter, which
+	 *    receives that decision and can grant or revoke access per request
+	 *    (rate limits, IP rules, per-route policies, ...).
+	 *
+	 * Fail-closed contract: the filter must return strictly `true` to allow,
+	 * any other value refuses, and a throw from either the principal method
+	 * or the filter callback refuses.
+	 *
+	 * @param object           $principal The resolved principal.
+	 * @param \WP_REST_Request $request   The REST request.
+	 */
+	private function is_request_allowed( object $principal, \WP_REST_Request $request ): bool {
+		try {
+			$is_anonymous = method_exists( $principal, 'is_authenticated' ) && true !== $principal->is_authenticated();
+			$allowed      = ! $is_anonymous || Main::are_anonymous_requests_allowed();
+
+			/**
+			 * Filters whether a GraphQL request may be processed at all.
+			 *
+			 * Applied right after the principal has been resolved and before
+			 * the query is parsed, cached or validated, so a refused request
+			 * costs nothing beyond principal resolution. The filter receives
+			 * the decision derived from the "Allow anonymous requests"
+			 * setting (false when the setting is off and the principal
+			 * reports itself as unauthenticated) and must return strictly
+			 * `true` to allow; any other value refuses the request with a
+			 * 401 UNAUTHORIZED response. The filter is not invoked when
+			 * principal resolution failed.
+			 *
+			 * @since 0.1.0
+			 *
+			 * @param bool             $allowed   Whether the request may proceed.
+			 * @param object           $principal The resolved principal.
+			 * @param \WP_REST_Request $request   The REST request being processed.
+			 */
+			$allowed = apply_filters( 'woocommerce_graphql_request_allowed', $allowed, $principal, $request );
+		} catch ( \Throwable $e ) {
+			return false;
+		}//end try
+
+		return true === $allowed;
 	}
 
 	/**

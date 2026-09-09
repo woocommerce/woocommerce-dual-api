@@ -8,6 +8,7 @@ These settings are **site-wide, not per-endpoint**: every setting below applies 
 
 | Setting | Option name (`Main::` constant) | Type | Default | Effect |
 | --- | --- | --- | --- | --- |
+| Allow anonymous requests | `woocommerce_graphql_anonymous_requests_allowed` (`OPTION_ANONYMOUS_REQUESTS_ALLOWED`) | checkbox | `yes` | When off, a request whose principal reports itself as unauthenticated gets 401 `UNAUTHORIZED` before the query is parsed, which also makes operations marked `#[PublicAccess]` unreachable. See [Refusing requests up front](./authentication-and-authorization.md#refusing-requests-up-front). |
 | Enable GET endpoint | `woocommerce_graphql_get_endpoint_enabled` (`OPTION_GET_ENDPOINT_ENABLED`) | checkbox | `yes` | When off, endpoints accept POST only; GET returns 404. Mutations are always rejected over GET. |
 | Maximum query depth | `woocommerce_graphql_max_query_depth` (`OPTION_MAX_QUERY_DEPTH`) | number | `15` | Rejects queries nested deeper than this during validation. Falls back to default when unset or non-positive. |
 | Maximum query complexity | `woocommerce_graphql_max_query_complexity` (`OPTION_MAX_QUERY_COMPLEXITY`) | number | `1000` | Rejects queries whose computed complexity score exceeds this. Connection fields multiply child cost by page size. |
@@ -25,7 +26,7 @@ The depth and complexity metrics are observable on a request by appending `?_deb
 The engine has one set of switches and filters shared by every endpoint on the site, there is no per-plugin configuration surface. Concretely:
 
 - **The WooCommerce Dual API plugin being active gates every dual-API endpoint.** When it is inactive, `Main` doesn't exist and no endpoint is registered (which is why plugins guard their `Main::register_graphql_endpoint()` call with `method_exists()`).
-- **Every setting applies to all endpoints.** The GET toggle, max depth, max complexity, the three caching toggles, and the cache TTL are read from the shared engine, so every endpoint honours them (for example, all endpoints reject GET when the GET toggle is off).
+- **Every setting applies to all endpoints.** The anonymous-requests toggle, the GET toggle, max depth, max complexity, the three caching toggles, and the cache TTL are read from the shared engine, so every endpoint honours them (for example, all endpoints reject GET when the GET toggle is off).
 - **The filters below are global.** A callback added to any of them affects *every* dual-API endpoint on the site. Each filter receives the `\WP_REST_Request`, so a callback that should apply to only one endpoint must branch on the request's route itself.
 
 ## Query caching
@@ -60,6 +61,7 @@ Refreshing a file that already exists is always allowed. The directory is measur
 | `woocommerce_graphql_max_cacheable_query_bytes` | `( int $max_bytes )` | Maximum length of a query string whose parsed AST is persisted, on any backend (default 16384). `0` removes the limit. See [Persistence bounds](#persistence-bounds). |
 | `woocommerce_graphql_opcache_max_files` | `( int $max_files )` | Maximum number of AST files kept in the OPcache directory (default 1000). `0` removes the limit. |
 | `woocommerce_graphql_opcache_max_bytes` | `( int $max_bytes )` | Maximum total size of the AST files kept in the OPcache directory (default 32 MB). `0` removes the limit. |
+| `woocommerce_graphql_request_allowed` | `( bool, object $principal, \WP_REST_Request )` | Decide whether a request is processed at all, before the query is parsed. See [Refusing requests up front](./authentication-and-authorization.md#refusing-requests-up-front). |
 | `woocommerce_graphql_can_introspect` | `( bool, ?object $principal, \WP_REST_Request )` | Gate native introspection. See [Authentication and authorization](./authentication-and-authorization.md). |
 | `woocommerce_graphql_can_use_debug_mode` | `( bool, ?object $principal, \WP_REST_Request )` | Gate debug mode. |
 | `woocommerce_graphql_can_query_metadata` | `( bool, ?object $principal, \WP_REST_Request )` | Gate `_apiMetadata`. See [Metadata](./metadata.md). |

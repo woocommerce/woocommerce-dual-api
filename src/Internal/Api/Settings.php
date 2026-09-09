@@ -61,6 +61,13 @@ class Settings {
 				'id'    => 'woocommerce_graphql_options',
 			),
 			array(
+				'title'   => __( 'Allow anonymous requests', 'woocommerce-dual-api' ),
+				'desc'    => __( 'Process requests that carry no credentials. When off, callers must authenticate before any query is parsed, which also makes operations marked as public unreachable.', 'woocommerce-dual-api' ),
+				'id'      => Main::OPTION_ANONYMOUS_REQUESTS_ALLOWED,
+				'default' => 'yes',
+				'type'    => 'checkbox',
+			),
+			array(
 				'title'   => __( 'Enable GET endpoint', 'woocommerce-dual-api' ),
 				'desc'    => __( 'Allow GraphQL queries over GET in addition to POST', 'woocommerce-dual-api' ),
 				'id'      => Main::OPTION_GET_ENDPOINT_ENABLED,
