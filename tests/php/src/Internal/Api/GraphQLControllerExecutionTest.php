@@ -55,8 +55,67 @@ class GraphQLControllerExecutionTest extends WC_REST_Unit_Test_Case {
 		wp_set_current_user( 0 );
 		wp_cache_flush();
 		delete_option( Main::OPTION_ANONYMOUS_REQUESTS_ALLOWED );
+		delete_option( Main::OPTION_MAX_QUERY_LENGTH );
 		remove_all_filters( 'woocommerce_graphql_request_allowed' );
 		parent::tearDown();
+	}
+
+	/**
+	 * @testdox a query longer than the maximum query length is rejected before being parsed.
+	 */
+	public function test_oversized_query_is_rejected_before_parsing(): void {
+		update_option( Main::OPTION_MAX_QUERY_LENGTH, '32' );
+
+		// A syntax error would be reported as GRAPHQL_PARSE_ERROR if the query were parsed.
+		$response = $this->sut->handle_request( $this->post_request( array( 'query' => '{ not even valid ' . str_repeat( 'x', 32 ) ) ) );
+
+		$data = $response->get_data();
+		$this->assertSame( 400, $response->get_status() );
+		$this->assertCount( 1, $data['errors'] );
+		$this->assertSame( 'Maximum query length exceeded.', $data['errors'][0]['message'] );
+		$this->assertSame( 'BAD_USER_INPUT', $data['errors'][0]['extensions']['code'] );
+	}
+
+	/**
+	 * @testdox a query exactly at the maximum query length is processed.
+	 */
+	public function test_query_at_the_maximum_length_is_processed(): void {
+		$query = '{ greeting { result } }';
+		update_option( Main::OPTION_MAX_QUERY_LENGTH, (string) strlen( $query ) );
+
+		$response = $this->sut->handle_request( $this->post_request( array( 'query' => $query ) ) );
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertArrayNotHasKey( 'errors', $response->get_data() );
+	}
+
+	/**
+	 * @testdox an oversized APQ registration is rejected, while hash-only requests are not subject to the limit.
+	 */
+	public function test_oversized_apq_registration_is_rejected(): void {
+		// A query no other test sends, so the hash can't be found in a cache file left behind by an earlier test.
+		$query      = '{ greeting { result } } # oversized APQ registration';
+		$extensions = array(
+			'persistedQuery' => array(
+				'version'    => 1,
+				'sha256Hash' => hash( 'sha256', $query ),
+			),
+		);
+		update_option( Main::OPTION_MAX_QUERY_LENGTH, (string) ( strlen( $query ) - 1 ) );
+
+		$registration = $this->sut->handle_request(
+			$this->post_request(
+				array(
+					'query'      => $query,
+					'extensions' => $extensions,
+				)
+			)
+		);
+		$lookup       = $this->sut->handle_request( $this->post_request( array( 'extensions' => $extensions ) ) );
+
+		$this->assertSame( 400, $registration->get_status() );
+		$this->assertSame( 'Maximum query length exceeded.', $registration->get_data()['errors'][0]['message'] );
+		$this->assertSame( 'PERSISTED_QUERY_NOT_FOUND', $lookup->get_data()['errors'][0]['extensions']['code'] );
 	}
 
 	/**

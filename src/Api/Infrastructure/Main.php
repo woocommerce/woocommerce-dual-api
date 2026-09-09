@@ -42,6 +42,14 @@ class Main {
 	public const OPTION_APQ_ENABLED = 'woocommerce_graphql_apq_enabled';
 
 	/**
+	 * Option name for the "Maximum query length" setting.
+	 *
+	 * Caps the size, in bytes, of the query string an endpoint accepts.
+	 * Longer queries are rejected before being parsed.
+	 */
+	public const OPTION_MAX_QUERY_LENGTH = 'woocommerce_graphql_max_query_length';
+
+	/**
 	 * Option name for the "Maximum query depth" setting.
 	 *
 	 * Caps how deep the selection tree of a GraphQL query may nest.

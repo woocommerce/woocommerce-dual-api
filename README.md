@@ -24,7 +24,7 @@ composer install --no-dev
 
 Then activate **WooCommerce Dual API** in the Plugins screen. Activation is the only switch: there is no feature flag. The plugin registers no GraphQL endpoint of its own; endpoints come from the plugins that define a code API, through `Automattic\WooCommerce\Api\Infrastructure\Main::register_graphql_endpoint()`.
 
-The engine's settings (anonymous-requests and GET endpoint toggles, query depth and complexity limits, query caches) are under **WooCommerce → Settings → Advanced → GraphQL** and apply to every dual-API endpoint on the site.
+The engine's settings (anonymous-requests and GET endpoint toggles, query length, depth and complexity limits, query caches) are under **WooCommerce → Settings → Advanced → GraphQL** and apply to every dual-API endpoint on the site.
 
 ### Behavior on other WooCommerce versions
 

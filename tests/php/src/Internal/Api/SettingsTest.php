@@ -76,6 +76,22 @@ class SettingsTest extends WC_Unit_Test_Case {
 	}
 
 	/**
+	 * @testdox add_settings defines the maximum query length number field with the controller default.
+	 */
+	public function test_add_settings_defines_max_query_length_field(): void {
+		$fields = $this->sut->add_settings( array(), Settings::SECTION_ID );
+		$by_id  = array_column( $fields, null, 'id' );
+
+		$this->assertArrayHasKey( Main::OPTION_MAX_QUERY_LENGTH, $by_id );
+		$this->assertSame( 'number', $by_id[ Main::OPTION_MAX_QUERY_LENGTH ]['type'] );
+		$this->assertSame(
+			(string) GraphQLControllerBase::DEFAULT_MAX_QUERY_LENGTH,
+			$by_id[ Main::OPTION_MAX_QUERY_LENGTH ]['default']
+		);
+		$this->assertSame( '1', $by_id[ Main::OPTION_MAX_QUERY_LENGTH ]['custom_attributes']['min'] );
+	}
+
+	/**
 	 * @testdox add_settings defines the GET endpoint checkbox with a 'yes' default.
 	 */
 	public function test_add_settings_defines_get_endpoint_checkbox(): void {

@@ -75,6 +75,14 @@ class Settings {
 				'type'    => 'checkbox',
 			),
 			array(
+				'title'             => __( 'Maximum query length', 'woocommerce-dual-api' ),
+				'desc'              => __( 'Reject queries longer than this many bytes before parsing them.', 'woocommerce-dual-api' ),
+				'id'                => Main::OPTION_MAX_QUERY_LENGTH,
+				'default'           => (string) GraphQLControllerBase::DEFAULT_MAX_QUERY_LENGTH,
+				'type'              => 'number',
+				'custom_attributes' => array( 'min' => '1' ),
+			),
+			array(
 				'title'             => __( 'Maximum query depth', 'woocommerce-dual-api' ),
 				'desc'              => __( 'Reject queries whose selection nesting exceeds this depth.', 'woocommerce-dual-api' ),
 				'id'                => Main::OPTION_MAX_QUERY_DEPTH,

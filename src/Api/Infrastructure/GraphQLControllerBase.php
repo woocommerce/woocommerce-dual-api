@@ -39,6 +39,20 @@ use Automattic\WooCommerce\Vendor\GraphQL\Validator\Rules\OverlappingFieldsCanBe
  */
 abstract class GraphQLControllerBase {
 	/**
+	 * Default query-length limit (in bytes) applied when the option is unset or non-positive.
+	 *
+	 * Queries longer than the configured limit are rejected before being
+	 * parsed, which bounds the work every later step does per request:
+	 * parsing, caching and validation all run before any resolver authorizes
+	 * the caller and are at least linear in the size of the query. The default
+	 * is far above any real query (the introspection query GraphQL clients send
+	 * is under 2 KB) and above the size up to which parsed queries are cached
+	 * ({@see \Automattic\WooCommerce\Internal\Api\QueryCache::DEFAULT_MAX_CACHEABLE_QUERY_BYTES}).
+	 * See {@see self::get_max_query_length()} for the accessor.
+	 */
+	public const DEFAULT_MAX_QUERY_LENGTH = 65536;
+
+	/**
 	 * Default nesting-depth limit applied when the option is unset or non-positive.
 	 *
 	 * Queries exceeding the configured limit are rejected during validation,
@@ -132,6 +146,18 @@ abstract class GraphQLControllerBase {
 	 */
 	protected function get_status_resolver(): ?object {
 		return null;
+	}
+
+	/**
+	 * The maximum length, in bytes, of a GraphQL query string.
+	 *
+	 * Reads the {@see Main::OPTION_MAX_QUERY_LENGTH} store option; falls back
+	 * to {@see self::DEFAULT_MAX_QUERY_LENGTH} when the option is unset, empty,
+	 * or non-positive.
+	 */
+	public static function get_max_query_length(): int {
+		$value = (int) get_option( Main::OPTION_MAX_QUERY_LENGTH, self::DEFAULT_MAX_QUERY_LENGTH );
+		return $value > 0 ? $value : self::DEFAULT_MAX_QUERY_LENGTH;
 	}
 
 	/**
@@ -327,6 +353,23 @@ abstract class GraphQLControllerBase {
 		$operation_name = $request->get_param( 'operationName' );
 		$variables      = $this->decode_json_param( $request->get_param( 'variables' ), 'variables' );
 		$extensions     = $this->decode_json_param( $request->get_param( 'extensions' ), 'extensions' );
+
+		// An oversized query is rejected before anything is done with it:
+		// the cache, the parser and the validator all run before any
+		// resolver authorizes the caller, and each is at least linear in
+		// the size of the query. A hash-only APQ request carries no query
+		// and is not subject to the limit.
+		if ( is_string( $query ) && strlen( $query ) > self::get_max_query_length() ) {
+			$too_long_output = array(
+				'errors' => array(
+					array(
+						'message'    => 'Maximum query length exceeded.',
+						'extensions' => array( 'code' => 'BAD_USER_INPUT' ),
+					),
+				),
+			);
+			return new \WP_REST_Response( $too_long_output, $this->pick_status( 400, $too_long_output, $request ) );
+		}
 
 		// 3. Resolve query (cache lookup / APQ / parse).
 		$source = $this->query_cache->resolve( $query, $extensions );
