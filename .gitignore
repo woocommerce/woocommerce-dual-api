@@ -1,5 +1,6 @@
 /vendor/
 /lib/vendor/
+/dist/
 /node_modules/
 /tmp/
 /.claude/

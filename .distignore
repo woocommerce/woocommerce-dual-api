@@ -1,8 +1,13 @@
-# Excluded from release builds (wp dist-archive). bin/api-builder/ is
-# deliberately NOT excluded: consumers build their GraphQL layer against
-# the installed plugin.
+# Excluded from release builds (composer build:zip, wp dist-archive).
+# bin/api-builder/ is deliberately NOT excluded: consumers build their
+# GraphQL layer against the installed plugin.
+/.ai
 /.claude
 /.git
+/bin/build-zip.sh
+/dist
+/stubs
+/lib/README.md
 /.github
 /lib/vendor
 /node_modules

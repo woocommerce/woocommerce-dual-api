@@ -13,7 +13,16 @@ The documentation lives in [the GitHub pages site for this repository](https://w
 
 ## Installation
 
-Until a packaged release is available, install from source:
+You can get an installable zip file from [the releases section in GitHub](https://github.com/woocommerce/woocommerce-dual-api/releases): download the latest release, then upload it through **Plugins → Add New → Upload Plugin**. If you prefer to create the zip file yourself, clone the repository and run `composer install` then `composer build:zip`:
+
+```sh
+git clone https://github.com/woocommerce/woocommerce-dual-api.git
+cd woocommerce-dual-api
+composer install
+composer build:zip        # writes dist/woocommerce-dual-api-<version>.zip
+```
+
+Alternatively, you can install from source directly:
 
 ```sh
 cd wp-content/plugins
@@ -62,7 +71,10 @@ composer phpcs            # coding standards (WooCommerce-Core ruleset)
 composer phpstan          # static analysis
 composer build:api:test   # regenerate the test fixture's GraphQL layer after changing the fixture or the builder
 composer build:api:check  # fail when the fixture's generated code is out of date
+composer build:zip        # build an installable zip into dist/ (needs bash, git and zip)
 ```
+
+The zip contains the files git knows about minus those listed in `.distignore`, plus a production Composer autoloader, and unpacks to a single `woocommerce-dual-api/` directory.
 
 ### Running the tests
 
